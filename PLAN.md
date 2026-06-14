@@ -26,7 +26,7 @@ Repo, `.gitignore`, nested `CLAUDE.md`, `.claude/settings.json` (permissions + r
 
 ---
 
-## Phase 2 — Scan engine & violation diff  · **TDD-first (diff)**
+## Phase 2 — Scan engine & violation diff  · **TDD-first (diff)** ✅
 **Goal:** the shared scan engine and the diff logic, runnable in isolation.
 **Entry:** Phase 1 committed.
 **Build:**

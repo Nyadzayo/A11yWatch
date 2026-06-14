@@ -9,6 +9,7 @@ from sqlalchemy import (
     Integer,
     String,
     Text,
+    UniqueConstraint,
     Uuid,
     func,
 )
@@ -70,6 +71,9 @@ class Scan(Base):
 
 class Violation(Base):
     __tablename__ = "violations"
+    __table_args__ = (
+        UniqueConstraint("scan_id", "fingerprint", name="uq_violation_scan_fingerprint"),
+    )
 
     id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
     scan_id: Mapped[uuid.UUID] = mapped_column(

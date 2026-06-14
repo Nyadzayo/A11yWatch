@@ -77,3 +77,10 @@ async def auth_headers(client):
     await client.post("/api/v1/auth/register", json=creds)
     token = (await client.post("/api/v1/auth/login", json=creds)).json()["access_token"]
     return {"Authorization": f"Bearer {token}"}
+
+
+@pytest_asyncio.fixture
+async def db_session(engine):
+    session_factory = async_sessionmaker(bind=engine, expire_on_commit=False)
+    async with session_factory() as session:
+        yield session
