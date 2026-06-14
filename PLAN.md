@@ -12,7 +12,7 @@ Repo, `.gitignore`, nested `CLAUDE.md`, `.claude/settings.json` (permissions + r
 
 ---
 
-## Phase 1 — API skeleton & data layer
+## Phase 1 — API skeleton & data layer ✅
 **Goal:** a running, tested API with no scanning yet.
 **Entry:** Phase 0 committed; `uv sync` + `docker compose up -d` succeed.
 **Build:**

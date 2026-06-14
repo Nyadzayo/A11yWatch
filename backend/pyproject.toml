@@ -16,7 +16,7 @@ dependencies = [
     "playwright>=1.48",
     "axe-playwright-python>=0.1.4",
     "python-jose[cryptography]>=3.3",
-    "passlib[bcrypt]>=1.7",
+    "bcrypt>=4.1",
     "httpx>=0.27",
 ]
 
@@ -39,6 +39,7 @@ packages = ["src/a11ywatch"]
 [tool.ruff]
 line-length = 100
 target-version = "py312"
+extend-exclude = ["alembic"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B", "ASYNC"]
