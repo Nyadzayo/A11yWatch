@@ -40,6 +40,7 @@ async def trigger_scan(
         redis_conn=queue.connection,
         queue=queue,
         site_timeout_seconds=settings.scan_site_timeout_seconds,
+        max_retries=settings.scan_max_retries,
     )
     if scan is None:
         raise api_error(409, "conflict", "A scan is already in progress for this project")

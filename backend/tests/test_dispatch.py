@@ -158,3 +158,19 @@ async def test_two_sequential_enqueues_only_one_created(db_session):
     assert c1 is True
     assert c2 is False
     assert queue.count == 1
+
+
+async def test_enqueue_configures_retry(db_session):
+    project = await _project(db_session)
+    conn, queue = _redis_and_queue()
+    _, created = await enqueue_scan(
+        db_session,
+        project,
+        "on_demand",
+        redis_conn=conn,
+        queue=queue,
+        site_timeout_seconds=600,
+        max_retries=2,
+    )
+    assert created is True
+    assert queue.jobs[0].retries_left == 2

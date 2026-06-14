@@ -22,6 +22,7 @@ async def run_due_scans_once(
     now: datetime,
     stagger_seconds: int,
     site_timeout_seconds: int,
+    max_retries: int = 0,
 ) -> int:
     """Enqueue (only) the due projects, staggered. Returns how many were newly enqueued."""
     due = await select_due_projects(session, now)
@@ -35,6 +36,7 @@ async def run_due_scans_once(
             queue=queue,
             site_timeout_seconds=site_timeout_seconds,
             delay_seconds=index * stagger_seconds,
+            max_retries=max_retries,
         )
         if created:
             created_count += 1
@@ -52,6 +54,7 @@ async def _cycle_async() -> None:
             now=datetime.now(UTC),
             stagger_seconds=settings.scheduler_stagger_seconds,
             site_timeout_seconds=settings.scan_site_timeout_seconds,
+            max_retries=settings.scan_max_retries,
         )
     log.info("scheduler cycle: enqueued %d scan(s)", count)
 

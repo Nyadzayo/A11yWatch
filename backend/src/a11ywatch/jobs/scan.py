@@ -4,11 +4,14 @@ import uuid
 from datetime import UTC, datetime
 
 import httpx
+from rq import get_current_job
 
 from a11ywatch.core.config import settings
 from a11ywatch.core.worker_db import worker_session
-from a11ywatch.jobs.dispatch import lock_key
-from a11ywatch.jobs.queue import get_redis
+from a11ywatch.jobs.alerts import enqueue_operator_alert
+from a11ywatch.jobs.dispatch import LOCK_TTL_BUFFER_SECONDS, lock_key
+from a11ywatch.jobs.queue import get_alert_queue, get_redis
+from a11ywatch.jobs.retry import is_transient, should_retry
 from a11ywatch.models.tables import Project, Scan
 from a11ywatch.scanning.crawl import resolve_pages
 from a11ywatch.scanning.engine import run_scan
@@ -30,16 +33,9 @@ def run_scan_job(scan_id: str) -> None:
         return
     try:
         result = _execute(config)
-    except BaseException as exc:
-        asyncio.run(_fail(scan_id, repr(exc)))
-        raise
-    # Finalize in its own guard: a persist/commit error here must still mark the scan
-    # failed and release the lock (otherwise the scan is stuck 'running').
-    try:
         asyncio.run(_finish(scan_id, result))
     except BaseException as exc:
-        asyncio.run(_fail(scan_id, repr(exc)))
-        raise
+        _on_error(scan_id, exc)
 
 
 def _execute(config: dict) -> ScanResult:
@@ -67,6 +63,8 @@ async def _begin(scan_id: str) -> dict | None:
         scan.started_at = datetime.now(UTC)
         project.status = "running"
         await session.commit()
+        # Refresh the lock for this attempt's budget so retries don't let it expire mid-run.
+        _refresh_lock(project.id)
         return {
             "base_url": project.base_url,
             "url_list": project.url_list,
@@ -109,3 +107,46 @@ def _release_lock(project_id) -> None:
         get_redis().delete(lock_key(project_id))
     except Exception:
         log.warning("failed to release scan lock for project %s", project_id)
+
+
+def _refresh_lock(project_id) -> None:
+    try:
+        get_redis().set(
+            lock_key(project_id),
+            "1",
+            ex=settings.scan_site_timeout_seconds + LOCK_TTL_BUFFER_SECONDS,
+        )
+    except Exception:
+        log.warning("failed to refresh scan lock for project %s", project_id)
+
+
+def _on_error(scan_id: str, exc: BaseException) -> None:
+    job = get_current_job()
+    retries_left = getattr(job, "retries_left", None)
+    if should_retry(exc, retries_left):
+        # Transient with retries left: reset to 'queued' and re-raise so RQ retries with
+        # backoff. The lock stays held across retries (the project remains in flight).
+        asyncio.run(_reset_for_retry(scan_id))
+        raise exc
+    # Final outcome: mark failed (releases the lock) and alert the OPERATOR, not the customer.
+    try:
+        asyncio.run(_fail(scan_id, repr(exc)))
+    except Exception:
+        log.exception("failed to finalize failed scan %s", scan_id)
+    try:
+        enqueue_operator_alert(get_alert_queue(), scan_id, repr(exc))
+    except Exception:
+        log.warning("failed to enqueue operator alert for scan %s", scan_id)
+    if is_transient(exc):
+        raise exc  # retries exhausted: surface to RQ's failed registry
+    # permanent failure: swallow so RQ does not retry
+
+
+async def _reset_for_retry(scan_id: str) -> None:
+    async with worker_session() as session:
+        scan = await session.get(Scan, uuid.UUID(scan_id))
+        if scan is None:
+            return
+        scan.status = "queued"
+        scan.started_at = None
+        await session.commit()

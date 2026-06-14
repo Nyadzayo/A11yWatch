@@ -32,6 +32,7 @@ class ScanViolation:
 class ScanResult:
     pages_scanned: int
     violations: list[ScanViolation]
+    failed_pages: int = 0
 
     @property
     def fingerprints(self) -> set[str]:

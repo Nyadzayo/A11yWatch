@@ -1,7 +1,7 @@
 from datetime import UTC, datetime, timedelta
 
-from rq import Queue
-from sqlalchemy import select
+from rq import Queue, Retry
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from starlette.concurrency import run_in_threadpool
 
@@ -29,7 +29,8 @@ async def _in_flight_scan(session: AsyncSession, project_id, *, cutoff: datetime
         .where(
             Scan.project_id == project_id,
             Scan.status.in_(_ACTIVE),
-            Scan.created_at >= cutoff,
+            # started_at advances on each retry attempt; created_at for not-yet-started scans.
+            func.coalesce(Scan.started_at, Scan.created_at) >= cutoff,
         )
         .order_by(Scan.created_at.desc())
         .limit(1)
@@ -45,6 +46,7 @@ async def enqueue_scan(
     queue: Queue,
     site_timeout_seconds: int,
     delay_seconds: int = 0,
+    max_retries: int = 0,
 ) -> tuple[Scan | None, bool]:
     """Lock-before-check enqueue shared by on-demand (API) and scheduled (scheduler).
 
@@ -77,6 +79,7 @@ async def enqueue_scan(
         session.add(scan)
         await session.flush()
         project.status = "queued"
+        retry = Retry(max=max_retries, interval=[4, 8]) if max_retries > 0 else None
         if delay_seconds > 0:
             job = await run_in_threadpool(
                 lambda: queue.enqueue_in(
@@ -84,11 +87,14 @@ async def enqueue_scan(
                     RUN_SCAN_JOB,
                     str(scan.id),
                     job_timeout=site_timeout_seconds,
+                    retry=retry,
                 )
             )
         else:
             job = await run_in_threadpool(
-                lambda: queue.enqueue(RUN_SCAN_JOB, str(scan.id), job_timeout=site_timeout_seconds)
+                lambda: queue.enqueue(
+                    RUN_SCAN_JOB, str(scan.id), job_timeout=site_timeout_seconds, retry=retry
+                )
             )
         scan.job_id = job.id
         await session.commit()

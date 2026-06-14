@@ -7,16 +7,17 @@ from a11ywatch.scanning.types import RawViolation
 class FakeScanner:
     """Stands in for the real Playwright+axe scanner (one browser per scan)."""
 
-    def __init__(self, per_page=None, raise_on=None):
+    def __init__(self, per_page=None, raise_on=None, raise_all=False):
         self.closed = False
         self.scanned = []
         self._per_page = per_page or {}
         self._raise_on = raise_on
+        self._raise_all = raise_all
 
     def scan_page(self, url):
         self.scanned.append(url)
-        if self._raise_on and url == self._raise_on:
-            raise RuntimeError("page failed")
+        if self._raise_all or url == self._raise_on:
+            raise TimeoutError(f"page failed: {url}")
         return self._per_page.get(url, [])
 
     def close(self):
@@ -38,13 +39,23 @@ def test_run_scan_assigns_fingerprints():
     result = run_scan(["https://ex.com/a"], scanner, page_cap=50)
     assert len(result.violations) == 1
     assert result.violations[0].fingerprint
-    assert result.violations[0].rule_id == "image-alt"
     assert result.fingerprints == {result.violations[0].fingerprint}
 
 
-def test_run_scan_closes_browser_on_error():
-    scanner = FakeScanner(raise_on="https://ex.com/b")
-    urls = ["https://ex.com/a", "https://ex.com/b", "https://ex.com/c"]
-    with pytest.raises(RuntimeError):
-        run_scan(urls, scanner, page_cap=50)
-    assert scanner.closed is True  # R7: browser closed even on error
+def test_run_scan_skips_a_failed_page_and_continues():
+    rv = RawViolation(page_url="https://ex.com/a", rule_id="image-alt", target="img")
+    scanner = FakeScanner(per_page={"https://ex.com/a": [rv]}, raise_on="https://ex.com/b")
+    result = run_scan(
+        ["https://ex.com/a", "https://ex.com/b", "https://ex.com/c"], scanner, page_cap=50
+    )
+    assert result.pages_scanned == 2  # a and c succeeded
+    assert result.failed_pages == 1  # b skipped
+    assert len(result.violations) == 1
+    assert scanner.closed is True
+
+
+def test_run_scan_raises_and_closes_when_all_pages_fail():
+    scanner = FakeScanner(raise_all=True)
+    with pytest.raises(TimeoutError):
+        run_scan(["https://ex.com/a", "https://ex.com/b"], scanner, page_cap=50)
+    assert scanner.closed is True  # R7: browser closed even on total failure

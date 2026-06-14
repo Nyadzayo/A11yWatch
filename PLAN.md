@@ -55,7 +55,7 @@ Repo, `.gitignore`, nested `CLAUDE.md`, `.claude/settings.json` (permissions + r
 
 ---
 
-## Phase 4 — Resilience: retries, timeouts, failure handling  · **TDD-first (retry/timeout)**
+## Phase 4 — Resilience: retries, timeouts, failure handling  · **TDD-first (retry/timeout)** ✅
 **Goal:** scans survive flaky sites and never hang or leak.
 **Entry:** Phase 3 committed.
 **Build:**

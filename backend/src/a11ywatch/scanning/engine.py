@@ -1,8 +1,11 @@
+import logging
 from collections.abc import Sequence
 from typing import Protocol
 
 from a11ywatch.scanning.fingerprint import compute_fingerprint
 from a11ywatch.scanning.types import RawViolation, ScanResult, ScanViolation
+
+log = logging.getLogger(__name__)
 
 
 class PageScanner(Protocol):
@@ -16,16 +19,25 @@ class PageScanner(Protocol):
 def run_scan(urls: Sequence[str], scanner: PageScanner, *, page_cap: int) -> ScanResult:
     """Scan up to ``page_cap`` URLs with ``scanner``, fingerprinting each issue.
 
-    The scanner is always closed (R7), including when a page scan raises.
+    A single page failure (e.g. a per-page timeout) is logged and skipped so one bad page
+    can't sink the whole scan. If EVERY attempted page fails, the last error is re-raised so
+    the job fails (and can retry). The scanner is always closed (R7), even on error.
     """
     violations: list[ScanViolation] = []
     pages_scanned = 0
+    failed_pages = 0
+    last_error: Exception | None = None
     try:
         for url in list(urls)[:page_cap]:
+            try:
+                page_violations = scanner.scan_page(url)
+            except Exception as exc:
+                failed_pages += 1
+                last_error = exc
+                log.warning("scan_page failed for %s: %r", url, exc)
+                continue
             pages_scanned += 1
-            # Per-page error handling (skip/retry, per-page timeouts) is deferred to Phase 4;
-            # for now a page failure aborts the scan — the scanner is still closed below (R7).
-            for rv in scanner.scan_page(url):
+            for rv in page_violations:
                 fingerprint = compute_fingerprint(rv.rule_id, rv.page_url, rv.target or "")
                 violations.append(
                     ScanViolation(
@@ -41,4 +53,6 @@ def run_scan(urls: Sequence[str], scanner: PageScanner, *, page_cap: int) -> Sca
                 )
     finally:
         scanner.close()
-    return ScanResult(pages_scanned=pages_scanned, violations=violations)
+    if pages_scanned == 0 and last_error is not None:
+        raise last_error
+    return ScanResult(pages_scanned=pages_scanned, violations=violations, failed_pages=failed_pages)
