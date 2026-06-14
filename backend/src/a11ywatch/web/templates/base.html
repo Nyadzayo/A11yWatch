@@ -28,6 +28,12 @@
       section ul { list-style:none; padding:0; margin:0; }
       section li { background:#fff; border:1px solid var(--border); border-left:3px solid var(--border); border-radius:0 6px 6px 0; padding:8px 10px; margin-bottom:6px; }
       code { font-size:12px; color:var(--muted); word-break:break-all; }
+      .trend { display:inline-block; font-weight:600; padding:2px 8px; border-radius:12px; font-size:13px; }
+      .trend.improved { background:#dcfce7; color:#15803d; }
+      .trend.regressed { background:#fee2e2; color:var(--critical); }
+      .trend.unchanged { background:#f3f4f6; color:var(--muted); }
+      .bars { display:flex; align-items:flex-end; gap:4px; height:80px; padding:8px 0; }
+      .bar { width:22px; min-height:3px; background:var(--accent); border-radius:3px 3px 0 0; }
     </style>
   </head>
   <body>

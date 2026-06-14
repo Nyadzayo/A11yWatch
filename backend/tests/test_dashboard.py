@@ -1,5 +1,5 @@
 import uuid
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 
 from sqlalchemy import func, select
 
@@ -121,6 +121,57 @@ async def test_scan_page_renders_issues_grouped_by_impact(client, db_session):
     assert "image-alt" in r.text
     assert "label" in r.text
     assert "critical" in r.text.lower()
+
+
+async def test_project_page_shows_issue_history_and_trend(client, db_session):
+    # Two succeeded scans: issues dropped 5 -> 2, so the trend is an improvement, and
+    # the project page must show an issue-count-over-time history (one bar per scan).
+    await _register(client)
+    await _login(client)
+    user = await db_session.scalar(select(User).where(User.email == "dash@example.com"))
+    project = Project(user_id=user.id, name="P", base_url="https://ex.com")
+    db_session.add(project)
+    await db_session.flush()
+    now = datetime.now(UTC)
+    older = Scan(
+        project_id=project.id,
+        trigger="scheduled",
+        status="succeeded",
+        total_issues=5,
+        created_at=now - timedelta(days=1),
+        finished_at=now - timedelta(days=1),
+    )
+    newer = Scan(
+        project_id=project.id,
+        trigger="on_demand",
+        status="succeeded",
+        total_issues=2,
+        created_at=now,
+        finished_at=now,
+    )
+    db_session.add_all([older, newer])
+    await db_session.commit()
+
+    body = (await client.get(f"/projects/{project.id}")).text
+    assert 'class="trend improved"' in body  # 2 < 5 => improved
+    assert body.lower().count('class="bar"') == 2  # one bar per succeeded scan
+    assert "over time" in body.lower()  # history section present
+
+
+async def test_project_page_trend_absent_with_single_scan(client, db_session):
+    # One scan => no baseline to compare against, so no trend badge is shown.
+    await _register(client)
+    await _login(client)
+    user = await db_session.scalar(select(User).where(User.email == "dash@example.com"))
+    project = Project(user_id=user.id, name="P", base_url="https://ex.com")
+    db_session.add(project)
+    await db_session.flush()
+    scan = Scan(project_id=project.id, trigger="on_demand", status="succeeded", total_issues=3)
+    db_session.add(scan)
+    await db_session.commit()
+
+    body = (await client.get(f"/projects/{project.id}")).text
+    assert 'class="trend ' not in body  # no trend badge without a baseline
 
 
 async def test_scan_page_404s_for_non_owner(client, db_session):

@@ -3,7 +3,25 @@
 <p><a href="/">← Projects</a></p>
 <h1>{{ project.name }}</h1>
 <p class="muted">{{ project.base_url }} · status: {{ project.status }}</p>
+{% if trend %}
+<p>
+  <span class="trend {{ trend.direction }}">
+    {%- if trend.direction == 'improved' %}▼ {{ trend.magnitude }} fewer issue{{ 's' if trend.magnitude != 1 else '' }}
+    {%- elif trend.direction == 'regressed' %}▲ {{ trend.magnitude }} more issue{{ 's' if trend.magnitude != 1 else '' }}
+    {%- else %}no change{% endif %}
+  </span>
+  <span class="muted">vs. previous scan</span>
+</p>
+{% endif %}
 <form method="post" action="/projects/{{ project.id }}/scan" class="inline"><button type="submit">Scan now</button></form>
+{% if history %}
+<h2>Issues over time</h2>
+<div class="bars">
+  {% for s in history %}
+  <div class="bar" style="height:{{ (s.total_issues * 100 // max_issues) if max_issues else 0 }}%" title="{{ s.created_at.strftime('%Y-%m-%d %H:%M') }} · {{ s.total_issues }} issues"></div>
+  {% endfor %}
+</div>
+{% endif %}
 <h2>Scans</h2>
 {% if scans %}
 <table>

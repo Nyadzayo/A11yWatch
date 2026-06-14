@@ -20,6 +20,7 @@ from a11ywatch.core.security import (
 )
 from a11ywatch.jobs.dispatch import enqueue_scan
 from a11ywatch.models.tables import Project, Scan, User, Violation
+from a11ywatch.web.trends import NO_BASELINE, scan_trend
 
 router = APIRouter(tags=["dashboard"], include_in_schema=False)
 templates = Jinja2Templates(directory=str(Path(__file__).resolve().parent / "templates"))
@@ -208,8 +209,27 @@ async def project_detail(
             .limit(25)
         )
     ).all()
+    # Issue-count-over-time history is built from succeeded scans only (failed/running
+    # scans carry no meaningful total). Newest-first from the query → reverse for the chart.
+    succeeded = [s for s in scans if s.status == "succeeded"]
+    history = list(reversed(succeeded))
+    max_issues = max((s.total_issues for s in history), default=0)
+    trend = None
+    if len(succeeded) >= 2:
+        trend = scan_trend(succeeded[0].total_issues, succeeded[1].total_issues)
+        if trend.direction == NO_BASELINE:
+            trend = None
     return templates.TemplateResponse(
-        request, "project.html", {"user": user, "project": project, "scans": scans}
+        request,
+        "project.html",
+        {
+            "user": user,
+            "project": project,
+            "scans": scans,
+            "history": history,
+            "max_issues": max_issues,
+            "trend": trend,
+        },
     )
 
 
