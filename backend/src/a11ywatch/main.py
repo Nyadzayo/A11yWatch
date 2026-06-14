@@ -3,9 +3,11 @@ from fastapi import FastAPI
 import a11ywatch.models.tables  # noqa: F401  (register ORM models on Base.metadata)
 from a11ywatch.api import alert_channels, auth, branding, projects, scans
 from a11ywatch.api.errors import register_exception_handlers
+from a11ywatch.core.logging import configure_logging
 
 
 def create_app() -> FastAPI:
+    configure_logging()
     app = FastAPI(title="A11yWatch", version="0.1.0")
     register_exception_handlers(app)
     app.include_router(auth.router)

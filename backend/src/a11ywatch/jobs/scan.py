@@ -7,6 +7,7 @@ import httpx
 from rq import get_current_job
 
 from a11ywatch.core.config import settings
+from a11ywatch.core.metrics import scan_metrics
 from a11ywatch.core.worker_db import worker_session
 from a11ywatch.jobs.alerts import enqueue_customer_alert_if_new, enqueue_operator_alert
 from a11ywatch.jobs.dispatch import LOCK_TTL_BUFFER_SECONDS, lock_key
@@ -77,10 +78,13 @@ async def _begin(scan_id: str) -> dict | None:
 async def _finish(scan_id: str, result: ScanResult) -> None:
     async with worker_session() as session:
         scan = await session.get(Scan, uuid.UUID(scan_id))
-        if scan is None:
+        if scan is None or scan.status != "running":
+            # Reaped (or already finalized) while we scanned — don't un-reap or re-alert.
+            log.warning("scan %s no longer running on finish; discarding result", scan_id)
             return
         diff = await persist_scan_result(session, scan, result)
         _release_lock(scan.project_id)
+        log.info("scan succeeded", extra=scan_metrics(scan))
     # Regression alerts fire on NEW issues only; the queue op is best-effort so an
     # alert-queue hiccup can't fail a scan that already succeeded and committed.
     try:
@@ -89,11 +93,16 @@ async def _finish(scan_id: str, result: ScanResult) -> None:
         log.warning("failed to enqueue customer alert for scan %s", scan_id)
 
 
-async def _fail(scan_id: str, error: str) -> None:
+async def _fail(scan_id: str, error: str) -> bool:
+    """Mark a running scan failed. Returns True if it transitioned (False if already finalized).
+
+    The status guard makes this idempotent against the reaper: if a stuck scan was already
+    reaped to 'failed', we neither re-finalize nor (via the caller) re-alert the operator.
+    """
     async with worker_session() as session:
         scan = await session.get(Scan, uuid.UUID(scan_id))
-        if scan is None:
-            return
+        if scan is None or scan.status != "running":
+            return False
         finished = datetime.now(UTC)
         scan.status = "failed"
         scan.error = error[:2000]
@@ -106,6 +115,8 @@ async def _fail(scan_id: str, error: str) -> None:
             project.last_scan_id = scan.id
         await session.commit()
         _release_lock(scan.project_id)
+        log.warning("scan failed", extra=scan_metrics(scan))
+        return True
 
 
 def _release_lock(project_id) -> None:
@@ -135,14 +146,18 @@ def _on_error(scan_id: str, exc: BaseException) -> None:
         asyncio.run(_reset_for_retry(scan_id))
         raise exc
     # Final outcome: mark failed (releases the lock) and alert the OPERATOR, not the customer.
+    finalized = False
     try:
-        asyncio.run(_fail(scan_id, repr(exc)))
+        finalized = asyncio.run(_fail(scan_id, repr(exc)))
     except Exception:
         log.exception("failed to finalize failed scan %s", scan_id)
-    try:
-        enqueue_operator_alert(get_alert_queue(), scan_id, repr(exc))
-    except Exception:
-        log.warning("failed to enqueue operator alert for scan %s", scan_id)
+    # Only alert if we actually finalized: if the scan was already reaped, the reaper alerted;
+    # if _fail errored, the row stays running and the reaper will catch and alert it later.
+    if finalized:
+        try:
+            enqueue_operator_alert(get_alert_queue(), scan_id, repr(exc))
+        except Exception:
+            log.warning("failed to enqueue operator alert for scan %s", scan_id)
     if is_transient(exc):
         raise exc  # retries exhausted: surface to RQ's failed registry
     # permanent failure: swallow so RQ does not retry

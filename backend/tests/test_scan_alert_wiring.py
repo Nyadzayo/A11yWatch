@@ -66,6 +66,42 @@ async def test_finish_enqueues_customer_alert_on_new_issues(db_session, monkeypa
     assert job.args == (str(scan.id), ["a", "b"])  # NEW fingerprints, sorted
 
 
+async def test_finish_skips_when_scan_already_reaped(db_session, monkeypatch):
+    # The reaper flipped the scan to failed; a late worker must not un-reap or alert.
+    _, scan = await _running_scan(db_session)
+    scan.status = "failed"
+    await db_session.flush()
+    queue = _wire(monkeypatch, db_session)
+
+    await scan_job._finish(str(scan.id), ScanResult(pages_scanned=1, violations=[_sv("a")]))
+
+    await db_session.refresh(scan)
+    assert scan.status == "failed"  # not un-reaped to succeeded
+    assert queue.count == 0  # no customer alert for a reaped scan
+
+
+async def test_fail_returns_true_and_finalizes_running_scan(db_session, monkeypatch):
+    _, scan = await _running_scan(db_session)
+    _wire(monkeypatch, db_session)
+
+    result = await scan_job._fail(str(scan.id), "boom")
+
+    assert result is True
+    await db_session.refresh(scan)
+    assert scan.status == "failed"
+
+
+async def test_fail_returns_false_when_already_reaped(db_session, monkeypatch):
+    _, scan = await _running_scan(db_session)
+    scan.status = "failed"
+    await db_session.flush()
+    _wire(monkeypatch, db_session)
+
+    result = await scan_job._fail(str(scan.id), "boom")
+
+    assert result is False
+
+
 async def test_finish_is_silent_when_no_new_issues(db_session, monkeypatch):
     project, scan = await _running_scan(db_session)
     prev = Scan(

@@ -82,7 +82,7 @@ Repo, `.gitignore`, nested `CLAUDE.md`, `.claude/settings.json` (permissions + r
 
 ---
 
-## Phase 6 — Operator self-monitoring & observability
+## Phase 6 — Operator self-monitoring & observability ✅ (MVP complete)
 **Goal:** a dead scheduler/worker is detected before customers notice.
 **Entry:** Phase 5 committed.
 **Build:**
