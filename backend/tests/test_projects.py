@@ -45,6 +45,24 @@ async def test_list_projects_pagination(client, auth_headers):
     assert len(body["items"]) == 2
 
 
+async def test_list_projects_filter_by_base_url(client, auth_headers):
+    await client.post(
+        "/api/v1/projects",
+        json={**PROJECT, "base_url": "https://a.example.com"},
+        headers=auth_headers,
+    )
+    await client.post(
+        "/api/v1/projects",
+        json={**PROJECT, "base_url": "https://b.example.com"},
+        headers=auth_headers,
+    )
+    r = await client.get("/api/v1/projects?base_url=https://b.example.com", headers=auth_headers)
+    body = r.json()
+    assert body["total"] == 1
+    assert len(body["items"]) == 1
+    assert body["items"][0]["base_url"] == "https://b.example.com"
+
+
 async def test_list_only_own_projects(client, auth_headers):
     await client.post("/api/v1/projects", json=PROJECT, headers=auth_headers)
     other = await _other_user_headers(client)

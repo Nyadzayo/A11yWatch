@@ -1,6 +1,7 @@
 import uuid
+from typing import Annotated
 
-from fastapi import APIRouter, status
+from fastapi import APIRouter, Query, status
 from sqlalchemy import func, select
 
 from a11ywatch.api.deps import CurrentUser, PaginationDep, SessionDep
@@ -31,15 +32,21 @@ async def create_project(
 
 @router.get("", response_model=Page[ProjectOut])
 async def list_projects(
-    current_user: CurrentUser, session: SessionDep, pagination: PaginationDep
+    current_user: CurrentUser,
+    session: SessionDep,
+    pagination: PaginationDep,
+    base_url: Annotated[str | None, Query()] = None,
 ) -> Page[ProjectOut]:
-    base = select(Project).where(Project.user_id == current_user.id)
-    total = await session.scalar(
-        select(func.count()).select_from(Project).where(Project.user_id == current_user.id)
-    )
+    conds = [Project.user_id == current_user.id]
+    if base_url is not None:
+        # Exact-match lookup so the extension can reuse a project by URL in one query.
+        conds.append(Project.base_url == base_url)
+    total = await session.scalar(select(func.count()).select_from(Project).where(*conds))
     rows = (
         await session.scalars(
-            base.order_by(Project.created_at.desc())
+            select(Project)
+            .where(*conds)
+            .order_by(Project.created_at.desc())
             .limit(pagination.limit)
             .offset(pagination.offset)
         )
