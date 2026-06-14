@@ -120,6 +120,22 @@ class ScanTriggerResponse(BaseModel):
     status: Literal["queued", "running"] = "queued"
 
 
+class ViolationOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: uuid.UUID
+    scan_id: uuid.UUID
+    page_url: str
+    rule_id: str
+    impact: str | None
+    help: str | None
+    help_url: str | None
+    target: str | None
+    html_snippet: str | None
+    fingerprint: str
+    created_at: datetime
+
+
 class Page[T](BaseModel):
     items: list[T]
     total: int

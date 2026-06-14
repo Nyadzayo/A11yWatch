@@ -154,3 +154,15 @@ Billing/payments; teams/roles beyond a single owner; PDF rendering of white-labe
 - `scan_frequency_minutes` (interval) vs cron expressions — **default: interval minutes**.
 - Alert channel types for MVP — **default: email first**, webhook/slack stubs.
 - How the extension authenticates — **default: user JWT**; per-project API keys later.
+
+## 13. Extension (MVP)
+
+Manifest V3, TypeScript + Vite/CRXJS. From the toolbar **popup**, audit the current tab server-side and show its issues.
+
+- **Service worker (`src/background/`)** owns *all* backend calls (login, `/auth/me`, audit-current-tab, get-scan, get-violations). No in-memory state — reads `{token, baseUrl}` from `chrome.storage.local` per call; listeners registered at top level; `host_permissions` for the API origin so cross-origin fetches need no CORS handling.
+- **Popup (`src/popup/`)** is the only UI — plain TS + minimal DOM, two views (**Login**, **Audit**). Talks to the worker via typed `chrome.runtime.sendMessage`. **No content script** (the backend scans the URL via Playwright; `activeTab` supplies the tab URL). Permissions: `activeTab`, `storage`, host.
+- **Shared lib (`src/lib/`)** — Vitest-covered core: typed API client (Bearer auth, error-envelope handling), session storage helpers, message types, issue grouping/formatting.
+- **Auth:** one-time email/password login (with a register toggle); JWT + base URL stored in `chrome.storage.local`; auto-resume when the session is valid (`/auth/me`), logout control. Default base URL `http://localhost:8000`.
+- **Audit flow:** active-tab URL → find-or-create a project for that exact URL (`url_list:[url]`, `max_pages:1`) → `POST /projects/{id}/scans` → poll `GET /scans/{id}` until `succeeded`/`failed` → `GET /scans/{id}/violations` → render grouped by impact (critical→minor) with rule, help link, selector, and total/new/resolved counts. The in-flight `scan_id` is persisted so closing/reopening the popup resumes polling.
+- **Read surface used:** `GET /scans/{id}/violations` (paginated, `impact` filter, ownership-checked). `GET /projects/{id}/latest` and `GET /scans/{id}/diff` remain deferred (counts ride on `ScanOut`).
+- **Copy:** never "compliance" — "issues", "monitoring", "regression alerts".

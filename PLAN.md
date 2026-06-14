@@ -94,6 +94,27 @@ Repo, `.gitignore`, nested `CLAUDE.md`, `.claude/settings.json` (permissions + r
 
 ---
 
+## Extension — Phase E1 — Backend violations read endpoint · **TDD-first**
+**Goal:** the read surface the popup needs to show issues.
+**Entry:** backend MVP (Phase 6) committed.
+**Build:** `GET /scans/{id}/violations` — paginated, `impact` filter, ownership-checked (scan→project→user, 404 for non-owners); `ViolationOut` schema.
+**Tests (write FIRST, confirm red):** owned scan returns issues; non-owner → 404; pagination; `impact` filter; empty scan → empty page.
+**Exit:** endpoint tests green; `ruff` clean. **Commit.**
+
+## Extension — Phase E2 — Extension core (lib + service worker) · **TDD-first (lib)**
+**Goal:** the testable network/session core, no UI yet.
+**Entry:** E1 committed.
+**Build:** `npm install`; Vitest; `src/lib/` (typed API client w/ Bearer + error-envelope handling, `chrome.storage` session helpers, message types, issue grouping/formatting); `src/background/` service worker message handlers (login, me, audit-current-tab, get-scan, get-violations) — all network here.
+**Tests (write FIRST, confirm red):** API client attaches Bearer + parses error envelope + 401 handling; session save/load/clear; issue grouping by impact; audit-current-tab find-or-create logic.
+**Exit:** Vitest green; `tsc --noEmit` clean. **Commit.**
+
+## Extension — Phase E3 — Popup UI
+**Goal:** the working popup end-to-end against the running API.
+**Entry:** E2 committed.
+**Build:** Login view (email/password + register toggle + API URL) and Audit view (trigger + poll + grouped issue list + counts); wire to the worker; `manifest.json` (popup, `host_permissions`).
+**Verify:** `npm run build`; load unpacked; audit a page against the running backend (manual, no UI test runner).
+**Exit:** popup audits a page and renders issues. **Commit. Extension MVP complete.**
+
 ## Cross-cutting
 - **Definition of done (per phase):** named tests green, `ruff check`/`format` clean, committed.
 - **No silent scope cuts:** if a phase drops a requirement, note it here.
