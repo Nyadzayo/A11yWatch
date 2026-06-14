@@ -37,3 +37,12 @@ async def test_scan_history_lists_scans(client, auth_headers):
     r = await client.get(f"/api/v1/projects/{pid}/scans", headers=auth_headers)
     assert r.status_code == 200
     assert r.json()["total"] == 1
+
+
+async def test_trigger_scan_is_idempotent_for_in_flight(client, auth_headers):
+    pid = await _make_project(client, auth_headers)
+    r1 = await client.post(f"/api/v1/projects/{pid}/scans", headers=auth_headers)
+    assert r1.status_code == 202
+    r2 = await client.post(f"/api/v1/projects/{pid}/scans", headers=auth_headers)
+    assert r2.status_code == 200  # in-flight scan returned, not re-enqueued
+    assert r2.json()["scan_id"] == r1.json()["scan_id"]

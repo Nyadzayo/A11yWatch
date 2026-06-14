@@ -40,7 +40,7 @@ Repo, `.gitignore`, nested `CLAUDE.md`, `.claude/settings.json` (permissions + r
 
 ---
 
-## Phase 3 — Queue, scheduler & concurrency lock  · **TDD-first (lock)**
+## Phase 3 — Queue, scheduler & concurrency lock  · **TDD-first (lock)** ✅
 **Goal:** wire the one engine to both triggers; prevent overlapping scans.
 **Entry:** Phase 2 committed.
 **Build:**

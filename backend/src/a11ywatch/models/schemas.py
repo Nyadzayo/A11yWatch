@@ -117,7 +117,7 @@ class ScanOut(BaseModel):
 class ScanTriggerResponse(BaseModel):
     scan_id: uuid.UUID
     job_id: str
-    status: Literal["queued"] = "queued"
+    status: Literal["queued", "running"] = "queued"
 
 
 class Page[T](BaseModel):

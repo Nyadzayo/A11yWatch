@@ -10,7 +10,7 @@ Accessibility scan engine + monitoring API + queue/workers + scheduler.
 ## Commands
 - `docker compose up -d`                       # Postgres + Redis (run from repo root)
 - `uv run fastapi dev src/a11ywatch/main.py`   # API
-- `uv run rq worker scans alerts`              # worker (separate queues)
+- `uv run python -m a11ywatch.workers`         # worker (scans + alerts queues, with scheduler)
 - `uv run python -m a11ywatch.scheduler`       # scheduler (enqueues due scans)
 - `uv run pytest`                              # tests (`uv run pytest path::test -v` for one)
 - `uv run ruff check . && uv run ruff format .`

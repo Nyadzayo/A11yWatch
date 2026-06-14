@@ -104,7 +104,7 @@ Operator alerting (scan failures) is configured globally via `OPERATOR_ALERT_EMA
 - **Error envelope:** `{"error": {"code": "...", "message": "...", "details": [...]}}` on every 4xx/5xx.
 - **Validation:** Pydantic v2 request models; 422 on bad input.
 - **Pagination:** `?limit=&offset=`; response `{"items":[...], "total":N, "limit":L, "offset":O}`.
-- **Idempotency on scan trigger (no double-enqueue):** `POST /projects/{id}/scans` is **lock-before-check**: (1) acquire Redis lock `scan:lock:{project_id}` via `SET NX EX <site_timeout>`; (2) if the lock isn't acquired, or `project.status ∈ {queued, running}`, return the in-flight scan (200); (3) otherwise create a `queued` scan, set `project.status=queued`, enqueue, return 202. The worker releases the lock on completion/failure; the TTL is the backstop. An optional `Idempotency-Key` header (scoped to `(user_id, project_id)`, stored in Redis ~24h) dedupes retried POSTs.
+- **Idempotency on scan trigger (no double-enqueue):** `POST /projects/{id}/scans` is **lock-before-check**: (1) DB gate — if a *non-stale* queued/running scan exists for the project, return it (200); (2) else acquire Redis lock `scan:lock:{project_id}` via `SET NX EX`; if not acquired, return the in-flight scan; (3) else create a `queued` scan and enqueue the shared job (with `job_timeout = site_timeout`), return 202. Active scans older than the lock window are treated as abandoned, so a crashed worker can't wedge the project (the DB gate and the Redis TTL agree). The worker releases the lock on success **and** failure; `TTL = site_timeout + stagger delay + buffer` is the backstop. An optional `Idempotency-Key` header dedupes retried POSTs.
 
 ## 7. Scan engine
 

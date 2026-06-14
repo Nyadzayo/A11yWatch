@@ -1,12 +1,12 @@
 import uuid
 
-from fastapi import APIRouter, status
+from fastapi import APIRouter, Response, status
 from sqlalchemy import func, select
-from starlette.concurrency import run_in_threadpool
 
 from a11ywatch.api.deps import CurrentUser, PaginationDep, ScanQueueDep, SessionDep
 from a11ywatch.api.errors import api_error
-from a11ywatch.jobs.noop import noop_scan
+from a11ywatch.core.config import settings
+from a11ywatch.jobs.dispatch import enqueue_scan
 from a11ywatch.models.schemas import Page, ScanOut, ScanTriggerResponse
 from a11ywatch.models.tables import Project, Scan, User
 
@@ -30,19 +30,22 @@ async def trigger_scan(
     current_user: CurrentUser,
     session: SessionDep,
     queue: ScanQueueDep,
+    response: Response,
 ) -> ScanTriggerResponse:
     project = await _get_owned_project(session, current_user, project_id)
-    scan = Scan(project_id=project.id, trigger="on_demand", status="queued")
-    session.add(scan)
-    await session.flush()  # assign scan.id without committing
-
-    # Enqueue off the event loop; if it fails, the uncommitted scan rolls back (no orphan row).
-    job = await run_in_threadpool(queue.enqueue, noop_scan, str(scan.id))
-    scan.job_id = job.id
-    await session.commit()
-    await session.refresh(scan)
-
-    return ScanTriggerResponse(scan_id=scan.id, job_id=scan.job_id, status=scan.status)
+    scan, created = await enqueue_scan(
+        session,
+        project,
+        "on_demand",
+        redis_conn=queue.connection,
+        queue=queue,
+        site_timeout_seconds=settings.scan_site_timeout_seconds,
+    )
+    if scan is None:
+        raise api_error(409, "conflict", "A scan is already in progress for this project")
+    if not created:
+        response.status_code = status.HTTP_200_OK  # idempotent: returning the in-flight scan
+    return ScanTriggerResponse(scan_id=scan.id, job_id=scan.job_id or "", status=scan.status)
 
 
 @router.get("/scans/{scan_id}", response_model=ScanOut)
