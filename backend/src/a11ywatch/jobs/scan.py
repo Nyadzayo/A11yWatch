@@ -8,7 +8,7 @@ from rq import get_current_job
 
 from a11ywatch.core.config import settings
 from a11ywatch.core.worker_db import worker_session
-from a11ywatch.jobs.alerts import enqueue_operator_alert
+from a11ywatch.jobs.alerts import enqueue_customer_alert_if_new, enqueue_operator_alert
 from a11ywatch.jobs.dispatch import LOCK_TTL_BUFFER_SECONDS, lock_key
 from a11ywatch.jobs.queue import get_alert_queue, get_redis
 from a11ywatch.jobs.retry import is_transient, should_retry
@@ -79,8 +79,14 @@ async def _finish(scan_id: str, result: ScanResult) -> None:
         scan = await session.get(Scan, uuid.UUID(scan_id))
         if scan is None:
             return
-        await persist_scan_result(session, scan, result)
+        diff = await persist_scan_result(session, scan, result)
         _release_lock(scan.project_id)
+    # Regression alerts fire on NEW issues only; the queue op is best-effort so an
+    # alert-queue hiccup can't fail a scan that already succeeded and committed.
+    try:
+        enqueue_customer_alert_if_new(get_alert_queue(), scan_id, diff.new)
+    except Exception:
+        log.warning("failed to enqueue customer alert for scan %s", scan_id)
 
 
 async def _fail(scan_id: str, error: str) -> None:

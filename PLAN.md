@@ -70,7 +70,7 @@ Repo, `.gitignore`, nested `CLAUDE.md`, `.claude/settings.json` (permissions + r
 
 ---
 
-## Phase 5 — Alerts & branding
+## Phase 5 — Alerts & branding ✅
 **Goal:** customers hear about regressions; reports can be white-labeled.
 **Entry:** Phase 4 committed.
 **Build:**

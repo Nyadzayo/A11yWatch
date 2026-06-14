@@ -10,7 +10,7 @@ from a11ywatch.api.errors import api_error
 from a11ywatch.core.db import get_session
 from a11ywatch.core.security import decode_token
 from a11ywatch.jobs import queue as job_queue
-from a11ywatch.models.tables import User
+from a11ywatch.models.tables import Project, User
 
 _bearer = HTTPBearer(auto_error=False)
 
@@ -37,6 +37,14 @@ async def get_current_user(
 
 
 CurrentUser = Annotated[User, Depends(get_current_user)]
+
+
+async def get_owned_project(session: AsyncSession, user: User, project_id: uuid.UUID) -> Project:
+    """Fetch a project the user owns, or raise 404 (never leak existence to non-owners)."""
+    project = await session.get(Project, project_id)
+    if project is None or project.user_id != user.id:
+        raise api_error(404, "not_found", "Project not found")
+    return project
 
 
 class Pagination:

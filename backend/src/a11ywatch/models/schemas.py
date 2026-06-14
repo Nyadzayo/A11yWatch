@@ -125,3 +125,94 @@ class Page[T](BaseModel):
     total: int
     limit: int
     offset: int
+
+
+# --- Alert channels -------------------------------------------------------- #
+ALLOWED_ALERT_EVENTS = {"new_issues"}
+
+
+def validate_channel_target(channel_type: str, target: str) -> None:
+    """Raise ValueError if ``target`` is malformed for ``channel_type``."""
+    if channel_type == "email":
+        local, _, domain = target.partition("@")
+        if not local or "." not in domain:
+            raise ValueError("email target must be a valid email address")
+    elif not (target.startswith("http://") or target.startswith("https://")):
+        raise ValueError(f"{channel_type} target must be an http(s) URL")
+
+
+def _validate_events(value: list[str] | None) -> list[str] | None:
+    if value is None:
+        return value
+    if not value:
+        # An empty subscription is a no-op; mute a channel with `enabled: false` instead.
+        raise ValueError("events must list at least one event type")
+    unsupported = sorted(set(value) - ALLOWED_ALERT_EVENTS)
+    if unsupported:
+        raise ValueError(f"unsupported events: {unsupported}")
+    return value
+
+
+class AlertChannelCreate(BaseModel):
+    type: Literal["email", "webhook", "slack"]
+    target: str
+    events: list[str] | None = None
+    enabled: bool = True
+
+    _check_events = field_validator("events")(_validate_events)
+
+    @model_validator(mode="after")
+    def _check_target(self) -> "AlertChannelCreate":
+        validate_channel_target(self.type, self.target)
+        return self
+
+
+class AlertChannelUpdate(BaseModel):
+    target: str | None = None
+    events: list[str] | None = None
+    enabled: bool | None = None
+
+    _check_events = field_validator("events")(_validate_events)
+
+    @model_validator(mode="before")
+    @classmethod
+    def _reject_explicit_nulls(cls, data):
+        # Omitting a field means "leave unchanged" (exclude_unset); an explicit JSON null is
+        # a client error. To stop alerts on a channel, set enabled: false rather than nulling.
+        if isinstance(data, dict):
+            for field in ("target", "enabled", "events"):
+                if field in data and data[field] is None:
+                    raise ValueError(f"{field} cannot be null")
+        return data
+
+
+class AlertChannelOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: uuid.UUID
+    project_id: uuid.UUID
+    type: str
+    target: str
+    events: list[str] | None
+    enabled: bool
+    created_at: datetime
+
+
+# --- Branding (white-label report settings) -------------------------------- #
+class BrandingUpdate(BaseModel):
+    company_name: str | None = None
+    logo_url: str | None = None
+    primary_color: str | None = None
+    report_footer: str | None = None
+
+    _check_logo = field_validator("logo_url")(_validate_http_url)
+
+
+class BrandingOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    project_id: uuid.UUID
+    company_name: str | None = None
+    logo_url: str | None = None
+    primary_color: str | None = None
+    report_footer: str | None = None
