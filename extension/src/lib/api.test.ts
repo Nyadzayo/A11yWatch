@@ -96,4 +96,24 @@ describe('ApiClient', () => {
     const c = client(() => new Response('not json', { status: 200 }), 'tok')
     await expect(c.me()).rejects.toMatchObject({ code: 'invalid_response' })
   })
+
+  it('invokes the global fetch with the correct this-binding when none is injected', async () => {
+    // In a service worker the global fetch raises "Illegal invocation" unless called with
+    // this === the global scope. Model that to lock in the binding.
+    const orig = globalThis.fetch
+    const seen: string[] = []
+    function nativeLike(this: unknown, url: unknown) {
+      if (this !== globalThis && this !== undefined) throw new TypeError('Illegal invocation')
+      seen.push(String(url))
+      return Promise.resolve(new Response(JSON.stringify({ id: '1', email: 'a@b.com' }), { status: 200 }))
+    }
+    ;(globalThis as any).fetch = nativeLike
+    try {
+      const c = new ApiClient({ baseUrl: 'http://api.test', token: 'tok' })
+      await c.me()
+      expect(seen).toEqual(['http://api.test/api/v1/auth/me'])
+    } finally {
+      ;(globalThis as any).fetch = orig
+    }
+  })
 })

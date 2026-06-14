@@ -31,7 +31,9 @@ export class ApiClient {
   constructor(opts: ApiClientOptions) {
     this.baseUrl = opts.baseUrl.replace(/\/+$/, '')
     this.token = opts.token ?? null
-    this.fetchImpl = opts.fetch ?? fetch
+    // Native fetch must be called with `this` === the global scope, or a service worker
+    // raises "Illegal invocation". Bind it; an injected fetch (tests) is used as-is.
+    this.fetchImpl = opts.fetch ?? globalThis.fetch.bind(globalThis)
   }
 
   private async request<T>(method: string, path: string, body?: unknown): Promise<T> {
