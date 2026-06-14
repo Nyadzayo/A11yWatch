@@ -282,6 +282,36 @@ async def test_scan_page_groups_in_severity_order(client, db_session):
     assert body.index("critical") < body.index("minor")  # severest first
 
 
+async def test_scan_page_caps_rendered_issues(client, db_session):
+    # A full-site crawl can yield thousands of issues; the page must not render them all.
+    await _register(client)
+    await _login(client)
+    user = await db_session.scalar(select(User).where(User.email == "dash@example.com"))
+    project = Project(user_id=user.id, name="P", base_url="https://ex.com")
+    db_session.add(project)
+    await db_session.flush()
+    scan = Scan(project_id=project.id, trigger="on_demand", status="succeeded", total_issues=250)
+    db_session.add(scan)
+    await db_session.flush()
+    for i in range(250):
+        db_session.add(
+            Violation(
+                scan_id=scan.id,
+                project_id=project.id,
+                page_url="u",
+                rule_id=f"rule-{i}",
+                impact="serious",
+                fingerprint=f"f{i}",
+            )
+        )
+    await db_session.commit()
+
+    body = (await client.get(f"/scans/{scan.id}")).text
+    assert body.count('class="issue"') <= 200  # capped, not 250
+    assert "250" in body  # true total still reported
+    assert "showing the first" in body.lower()  # truncation note
+
+
 async def test_scan_page_escapes_violation_fields_and_guards_help_url(client, db_session):
     await _register(client)
     await _login(client)

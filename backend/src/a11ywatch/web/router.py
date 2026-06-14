@@ -6,7 +6,7 @@ from urllib.parse import urlsplit
 from fastapi import APIRouter, Depends, Form, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 
 from a11ywatch.api.deps import ScanQueueDep, SessionDep
@@ -26,6 +26,8 @@ templates = Jinja2Templates(directory=str(Path(__file__).resolve().parent / "tem
 
 COOKIE_NAME = "a11ywatch_session"
 _IMPACT_ORDER = ["critical", "serious", "moderate", "minor"]
+# A full-site crawl can produce thousands of issues; cap how many we render per page.
+_SCAN_DISPLAY_LIMIT = 200
 
 
 async def current_dashboard_user(request: Request, session: SessionDep) -> User | None:
@@ -249,9 +251,34 @@ async def scan_detail(
     project = await session.get(Project, scan.project_id)
     if project is None or project.user_id != user.id:
         return RedirectResponse("/", status_code=303)
-    violations = list(await session.scalars(select(Violation).where(Violation.scan_id == scan.id)))
+    total = await session.scalar(
+        select(func.count()).select_from(Violation).where(Violation.scan_id == scan.id)
+    )
+    impact_rows = (
+        await session.execute(
+            select(Violation.impact, func.count())
+            .where(Violation.scan_id == scan.id)
+            .group_by(Violation.impact)
+        )
+    ).all()
+    impact_counts = {(impact or "unknown"): count for impact, count in impact_rows}
+    # Render only a bounded sample so a huge scan can't produce a multi-megabyte page.
+    sample = list(
+        await session.scalars(
+            select(Violation).where(Violation.scan_id == scan.id).limit(_SCAN_DISPLAY_LIMIT)
+        )
+    )
     return templates.TemplateResponse(
         request,
         "scan.html",
-        {"user": user, "scan": scan, "project": project, "groups": _group_by_impact(violations)},
+        {
+            "user": user,
+            "scan": scan,
+            "project": project,
+            "groups": _group_by_impact(sample),
+            "impact_counts": impact_counts,
+            "total": total or 0,
+            "shown": len(sample),
+            "truncated": (total or 0) > len(sample),
+        },
     )

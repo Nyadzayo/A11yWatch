@@ -6,12 +6,13 @@
 <p>Status: <strong>{{ scan.status }}</strong>{% if scan.status in ('queued', 'running') %} · refreshing…{% endif %}</p>
 {% if scan.status == 'succeeded' %}
 <p class="muted">{{ scan.total_issues }} issues · {{ scan.new_issues }} new · {{ scan.resolved_issues }} resolved</p>
+{% if truncated %}<p class="muted">Showing the first {{ shown }} of {{ total }} issues.</p>{% endif %}
 {% for group in groups %}
 <section>
-  <h3 class="impact {{ group.impact }}">{{ group.impact }} ({{ group.violations|length }})</h3>
+  <h3 class="impact {{ group.impact }}">{{ group.impact }} ({{ impact_counts.get(group.impact, group.violations|length) }})</h3>
   <ul>
     {% for v in group.violations %}
-    <li>
+    <li class="issue">
       <strong>{{ v.rule_id }}</strong>{% if v.help %} — {{ v.help }}{% endif %}
       {% if v.help_url and (v.help_url.startswith('http://') or v.help_url.startswith('https://')) %}
       <a href="{{ v.help_url }}" target="_blank" rel="noopener noreferrer">Learn more</a>{% endif %}
