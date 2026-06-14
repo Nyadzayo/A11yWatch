@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% block content %}
+<p><a href="/">← Projects</a></p>
+<h1>{{ project.name }}</h1>
+<p class="muted">{{ project.base_url }} · status: {{ project.status }}</p>
+<form method="post" action="/projects/{{ project.id }}/scan" class="inline"><button type="submit">Scan now</button></form>
+<h2>Scans</h2>
+{% if scans %}
+<table>
+  <thead><tr><th>When</th><th>Trigger</th><th>Status</th><th>Issues</th><th>New</th><th>Resolved</th></tr></thead>
+  <tbody>
+    {% for s in scans %}
+    <tr>
+      <td><a href="/scans/{{ s.id }}">{{ s.created_at.strftime('%Y-%m-%d %H:%M') }}</a></td>
+      <td>{{ s.trigger }}</td>
+      <td>{{ s.status }}</td>
+      <td>{{ s.total_issues }}</td>
+      <td>{{ s.new_issues }}</td>
+      <td>{{ s.resolved_issues }}</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% else %}
+<p class="muted">No scans yet. Click "Scan now" to run one.</p>
+{% endif %}
+{% endblock %}

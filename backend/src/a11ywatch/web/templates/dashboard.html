@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Projects</h1>
+{% if error %}<p class="error">{{ error }}</p>{% endif %}
+<form method="post" action="/projects" class="inline">
+  <input name="name" placeholder="Project name" required />
+  <input name="base_url" type="url" placeholder="https://example.com" required style="flex:1; min-width:220px;" />
+  <button type="submit">Add project</button>
+</form>
+{% if projects %}
+<table>
+  <thead><tr><th>Name</th><th>URL</th><th>Status</th><th>Last scan</th></tr></thead>
+  <tbody>
+    {% for p in projects %}
+    <tr>
+      <td><a href="/projects/{{ p.id }}">{{ p.name }}</a></td>
+      <td class="muted">{{ p.base_url }}</td>
+      <td>{{ p.status }}</td>
+      <td class="muted">{% if p.last_scan_at %}{{ p.last_scan_at.strftime('%Y-%m-%d %H:%M') }}{% else %}—{% endif %}</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% else %}
+<p class="muted">No projects yet. Add one above to start monitoring.</p>
+{% endif %}
+{% endblock %}

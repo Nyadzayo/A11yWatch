@@ -148,7 +148,7 @@ Operator alerting (scan failures) is configured globally via `OPERATOR_ALERT_EMA
 - **Tooling:** pytest + pytest-asyncio; `fakeredis` for lock/queue tests; `httpx.AsyncClient` for the API; `pytest-mock`/monkeypatch to stub Playwright in unit tests (no real browser in unit tests).
 
 ## 11. Out of scope (MVP)
-Billing/payments; teams/roles beyond a single owner; PDF rendering of white-label reports (branding is stored, not rendered); a full web dashboard SPA (the extension is the primary viewer); SSO/OAuth; quotas/rate-limiting; i18n.
+Billing/payments; teams/roles beyond a single owner; PDF rendering of white-label reports (branding is stored, not rendered); a client-side dashboard SPA (a **minimal server-rendered dashboard** ships — see §14; the extension remains the quick-audit viewer); SSO/OAuth; quotas/rate-limiting; i18n.
 
 ## 12. Open questions (defaults chosen; confirm during build)
 - `scan_frequency_minutes` (interval) vs cron expressions — **default: interval minutes**.
@@ -166,3 +166,12 @@ Manifest V3, TypeScript + Vite/CRXJS. From the toolbar **popup**, audit the curr
 - **Audit flow:** active-tab URL → find-or-create a project for that exact URL (`url_list:[url]`, `max_pages:1`) → `POST /projects/{id}/scans` → poll `GET /scans/{id}` until `succeeded`/`failed` → `GET /scans/{id}/violations` → render grouped by impact (critical→minor) with rule, help link, selector, and total/new/resolved counts. The in-flight `scan_id` is persisted so closing/reopening the popup resumes polling.
 - **Read surface used:** `GET /scans/{id}/violations` (paginated, `impact` filter, ownership-checked). `GET /projects/{id}/latest` and `GET /scans/{id}/diff` remain deferred (counts ride on `ScanOut`).
 - **Copy:** never "compliance" — "issues", "monitoring", "regression alerts".
+
+## 14. Web dashboard (server-rendered)
+
+A minimal browser dashboard served by the API itself (`web/`, Jinja2), mounted on the same app at the root — no build step, no extension required. Open the API origin in a browser.
+
+- **Auth:** browser cookie, reusing `core/security`. `POST /login` validates with `verify_password`, mints the same JWT via `create_access_token`, stores it in an **httpOnly, SameSite=Lax** cookie (`secure` in production); a cookie-auth dependency redirects to `/login` (303) when absent/invalid. `POST /logout` clears it. Register supported from the login page.
+- **Pages:** `/login`; `/` (your projects + a "new project" form); `/projects/{id}` (scan history + "Scan now"); `/scans/{id}` (status + issues grouped by impact, auto-refresh while `queued`/`running`).
+- **Reuse:** "Scan now" calls the same `enqueue_scan` (one engine — now reachable from extension, scheduler, **and** dashboard); reads hit the existing tables. Dashboard-created projects monitor the whole site (default crawl) vs the extension's single-page audit.
+- **Safety:** Jinja2 autoescaping (XSS); SameSite=Lax mitigates CSRF on state-changing POSTs for the MVP (full CSRF tokens are a follow-up); ownership-checked on every page. **Copy:** never "compliance".

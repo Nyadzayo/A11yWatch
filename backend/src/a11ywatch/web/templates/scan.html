@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+{% block head %}{% if scan.status in ('queued', 'running') %}<meta http-equiv="refresh" content="3" />{% endif %}{% endblock %}
+{% block content %}
+<p><a href="/projects/{{ project.id }}">← {{ project.name }}</a></p>
+<h1>Scan results</h1>
+<p>Status: <strong>{{ scan.status }}</strong>{% if scan.status in ('queued', 'running') %} · refreshing…{% endif %}</p>
+{% if scan.status == 'succeeded' %}
+<p class="muted">{{ scan.total_issues }} issues · {{ scan.new_issues }} new · {{ scan.resolved_issues }} resolved</p>
+{% for group in groups %}
+<section>
+  <h3 class="impact {{ group.impact }}">{{ group.impact }} ({{ group.violations|length }})</h3>
+  <ul>
+    {% for v in group.violations %}
+    <li>
+      <strong>{{ v.rule_id }}</strong>{% if v.help %} — {{ v.help }}{% endif %}
+      {% if v.help_url and (v.help_url.startswith('http://') or v.help_url.startswith('https://')) %}
+      <a href="{{ v.help_url }}" target="_blank" rel="noopener noreferrer">Learn more</a>{% endif %}
+      {% if v.target %}<br /><code>{{ v.target }}</code>{% endif %}
+      <br /><small class="muted">{{ v.page_url }}</small>
+    </li>
+    {% endfor %}
+  </ul>
+</section>
+{% else %}
+<p class="muted">No issues found 🎉</p>
+{% endfor %}
+{% elif scan.status == 'failed' %}
+<p class="error">Scan failed{% if scan.error %}: {{ scan.error }}{% endif %}</p>
+{% else %}
+<p class="muted">Scan is {{ scan.status }}…</p>
+{% endif %}
+{% endblock %}

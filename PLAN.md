@@ -115,6 +115,13 @@ Repo, `.gitignore`, nested `CLAUDE.md`, `.claude/settings.json` (permissions + r
 **Verify:** `npm run build`; load unpacked; audit a page against the running backend (manual, no UI test runner).
 **Exit:** popup audits a page and renders issues. **Commit. Extension MVP complete.**
 
+## Dashboard — Phase D1 — Server-rendered web dashboard · **TDD-first**
+**Goal:** view + manage + trigger scans from a browser, served by the API (no extension, no build step).
+**Entry:** backend MVP committed.
+**Build:** `web/` module — cookie auth (login/logout/register, httpOnly SameSite=Lax JWT cookie, reuse `core/security`), Jinja2 templates, routes: `/login`, `/` (projects + new-project form), `/projects/{id}` (scans + "Scan now"), `/scans/{id}` (issues grouped by impact, auto-refresh). "Scan now" reuses `enqueue_scan`. Mounted on the app root.
+**Tests (write FIRST, confirm red):** logged-out protected page → 303 `/login`; login sets cookie → `/` 200; dashboard lists only the owner's projects; scan page renders issues grouped by impact; "Scan now" enqueues (fakeredis); no "compliance" in rendered HTML.
+**Exit:** dashboard tests green; `ruff` clean. **Commit.**
+
 ## Cross-cutting
 - **Definition of done (per phase):** named tests green, `ruff check`/`format` clean, committed.
 - **No silent scope cuts:** if a phase drops a requirement, note it here.
