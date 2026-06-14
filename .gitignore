@@ -1,0 +1,45 @@
+# --- Python ---
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.coverage
+htmlcov/
+coverage.xml
+
+# --- Node / extension ---
+node_modules/
+dist/
+.vite/
+extension/dist/
+
+# --- Playwright ---
+test-results/
+playwright-report/
+playwright/.cache/
+
+# --- Env & secrets ---
+.env
+.env.*
+!.env.example
+
+# --- Databases / local data ---
+*.sqlite3
+*.db
+pgdata/
+
+# --- Chrome extension build artifacts ---
+*.crx
+*.pem
+
+# --- Editor / OS ---
+.DS_Store
+.idea/
+.vscode/
+
+# --- Claude Code (personal, not shared) ---
+.claude/settings.local.json

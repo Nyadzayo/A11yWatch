@@ -1,0 +1,10 @@
+{
+  "manifest_version": 3,
+  "name": "A11yWatch",
+  "version": "0.1.0",
+  "description": "Trigger accessibility audits of the current tab and view issues.",
+  "permissions": ["activeTab", "storage"],
+  "action": {
+    "default_title": "A11yWatch"
+  }
+}
