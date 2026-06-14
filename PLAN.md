@@ -94,21 +94,21 @@ Repo, `.gitignore`, nested `CLAUDE.md`, `.claude/settings.json` (permissions + r
 
 ---
 
-## Extension — Phase E1 — Backend violations read endpoint · **TDD-first**
+## Extension — Phase E1 — Backend violations read endpoint · **TDD-first** ✅
 **Goal:** the read surface the popup needs to show issues.
 **Entry:** backend MVP (Phase 6) committed.
 **Build:** `GET /scans/{id}/violations` — paginated, `impact` filter, ownership-checked (scan→project→user, 404 for non-owners); `ViolationOut` schema.
 **Tests (write FIRST, confirm red):** owned scan returns issues; non-owner → 404; pagination; `impact` filter; empty scan → empty page.
 **Exit:** endpoint tests green; `ruff` clean. **Commit.**
 
-## Extension — Phase E2 — Extension core (lib + service worker) · **TDD-first (lib)**
+## Extension — Phase E2 — Extension core (lib + service worker) · **TDD-first (lib)** ✅
 **Goal:** the testable network/session core, no UI yet.
 **Entry:** E1 committed.
 **Build:** `npm install`; Vitest; `src/lib/` (typed API client w/ Bearer + error-envelope handling, `chrome.storage` session helpers, message types, issue grouping/formatting); `src/background/` service worker message handlers (login, me, audit-current-tab, get-scan, get-violations) — all network here.
 **Tests (write FIRST, confirm red):** API client attaches Bearer + parses error envelope + 401 handling; session save/load/clear; issue grouping by impact; audit-current-tab find-or-create logic.
 **Exit:** Vitest green; `tsc --noEmit` clean. **Commit.**
 
-## Extension — Phase E3 — Popup UI
+## Extension — Phase E3 — Popup UI ✅ (extension MVP complete)
 **Goal:** the working popup end-to-end against the running API.
 **Entry:** E2 committed.
 **Build:** Login view (email/password + register toggle + API URL) and Audit view (trigger + poll + grouped issue list + counts); wire to the worker; `manifest.json` (popup, `host_permissions`).

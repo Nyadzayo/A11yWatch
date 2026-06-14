@@ -1,10 +1,16 @@
 # Extension — A11yWatch (Manifest V3, TypeScript + Vite/CRXJS)
 
-Trigger on-demand accessibility audits of the current tab and show issues; light viewer for the monitoring dashboard. (Background worker + popup land in Phase 1.)
+Trigger on-demand accessibility audits of the current tab and show its issues. The background service worker owns all backend calls; the popup is the only UI.
+
+## Layout
+- `src/lib/` — pure core (API client, session, audit find-or-create + grouping). Unit-tested.
+- `src/background/` — service worker: typed message dispatcher; all network lives here.
+- `src/popup/` — Login + Audit views; `render.ts` (pure, tested) builds the issue HTML.
 
 ## Commands
 - `npm install` · `npm run dev` (watch) · `npm run build` (bundle → `dist/`)
-- Reload the unpacked extension at `chrome://extensions` after building (no automated UI test runner).
+- `npm test` (Vitest — covers `src/lib` + `src/popup/render`) · `npm run typecheck` (`tsc --noEmit`)
+- Reload the unpacked `dist/` at `chrome://extensions` after building. The popup DOM/messaging is verified manually (no UI test runner); pure logic is unit-tested instead.
 
 ## MV3 gotchas (commonly gotten wrong)
 - Service worker is **not** persistent — never hold state in memory; use `chrome.storage`.
