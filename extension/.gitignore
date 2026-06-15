@@ -1,0 +1,8 @@
+# build output (also covered at repo root)
+dist/
+
+# store upload artifact (regenerate with `npm run package`)
+*.zip
+
+# vendored axe-core — regenerated from the pinned dependency by `npm run copy-axe`
+public/axe.min.js
