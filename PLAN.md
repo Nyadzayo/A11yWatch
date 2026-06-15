@@ -129,21 +129,24 @@ Audit (2026-06-14) against the MVP must-haves found: Scan-now ✅; Auth+add-proj
 Pure `web/trends.py::scan_trend(current, previous)` → improved/regressed/unchanged/no_baseline + signed change (fewer issues = better). Project page gains an issue-count-over-time view (CSS bars, no chart lib) and a trend badge vs. the previous succeeded scan.
 **Tests:** `test_trends.py` (improved/regressed/unchanged/no_baseline); project page renders trend badge + history bars.
 
-### Phase D3 — Multi-site overview
+### Phase D3 — Multi-site overview ✅
 Reuse `scan_trend`. `/` table gains per-project current issue count, severity breakdown, last-scanned, and a better/worse trend badge, via aggregate queries (no N+1).
 **Tests:** per-project rollup (counts + severity); trend badge reflects latest-vs-previous.
 
-### Phase D4 — Add-project completeness
+### Phase D4 — Add-project completeness ✅
 Extend the add-project form + `create_project_web` to capture scan frequency (daily/weekly/hourly → minutes), optional sitemap URL, optional page list (→ `url_list`), optional `max_pages`, with validation.
 **Tests:** form persists the new fields; invalid frequency/URL rejected.
 
-### Phase D5 — White-label report
+### Phase D5 — White-label report ✅
 Branding settings form + a print-optimized report page (agency logo + name, latest scan summary, "N new / M fixed" diff, timestamp). PDF via browser print (no new dependency).
 **Tests:** report renders branding + diff summary; only the owner can view.
 
-### Phase D6 — Alert settings
+### Phase D6 — Alert settings ✅ (dashboard MVP complete)
 Dashboard form to list/add/remove email + optional Slack webhook channels, wired to the existing `AlertChannel` logic.
 **Tests:** add email channel persists; add Slack webhook persists; delete removes; non-owner blocked.
+
+### Dashboard review (D2–D5) ✅
+Adversarial review (injection / authz / correctness) → 3 confirmed fixes: latest/previous succeeded scan now ordered by `finished_at` (overview, project page, report) so out-of-order completion or created_at ties can't invert the trend; login runs constant-work bcrypt for unknown emails (no timing enumeration).
 
 ## Cross-cutting
 - **Definition of done (per phase):** named tests green, `ruff check`/`format` clean, committed.
