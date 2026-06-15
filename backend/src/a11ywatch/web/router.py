@@ -1,4 +1,5 @@
 import uuid
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Annotated
 from urllib.parse import urlsplit
@@ -19,8 +20,8 @@ from a11ywatch.core.security import (
     verify_password,
 )
 from a11ywatch.jobs.dispatch import enqueue_scan
-from a11ywatch.models.tables import Project, Scan, User, Violation
-from a11ywatch.web.forms import frequency_label, parse_project_settings
+from a11ywatch.models.tables import Branding, Project, Scan, User, Violation
+from a11ywatch.web.forms import frequency_label, is_hex_color, parse_branding, parse_project_settings
 from a11ywatch.web.trends import NO_BASELINE, scan_trend
 
 router = APIRouter(tags=["dashboard"], include_in_schema=False)
@@ -402,5 +403,132 @@ async def scan_detail(
             "total": total or 0,
             "shown": len(sample),
             "truncated": (total or 0) > len(sample),
+        },
+    )
+
+
+# --- white-label branding & report ----------------------------------------- #
+_DEFAULT_ACCENT = "#1a56db"
+
+
+@router.get("/projects/{project_id}/branding", response_class=HTMLResponse)
+async def branding_form(
+    project_id: uuid.UUID, request: Request, session: SessionDep, user: DashboardUser
+):
+    if user is None:
+        return RedirectResponse("/login", status_code=303)
+    project = await session.get(Project, project_id)
+    if project is None or project.user_id != user.id:
+        return RedirectResponse("/", status_code=303)
+    branding = await session.scalar(select(Branding).where(Branding.project_id == project.id))
+    return templates.TemplateResponse(
+        request,
+        "branding.html",
+        {
+            "user": user,
+            "project": project,
+            "branding": branding,
+            "saved": request.query_params.get("saved"),
+            "error": None,
+        },
+    )
+
+
+@router.post("/projects/{project_id}/branding", dependencies=[Depends(verify_origin)])
+async def branding_save(
+    project_id: uuid.UUID,
+    request: Request,
+    session: SessionDep,
+    user: DashboardUser,
+    company_name: Annotated[str | None, Form()] = None,
+    logo_url: Annotated[str | None, Form()] = None,
+    primary_color: Annotated[str | None, Form()] = None,
+    report_footer: Annotated[str | None, Form()] = None,
+):
+    if user is None:
+        return RedirectResponse("/login", status_code=303)
+    project = await session.get(Project, project_id)
+    if project is None or project.user_id != user.id:
+        return RedirectResponse("/", status_code=303)
+    branding = await session.scalar(select(Branding).where(Branding.project_id == project.id))
+    try:
+        values = parse_branding(
+            company_name=company_name,
+            logo_url=logo_url,
+            primary_color=primary_color,
+            report_footer=report_footer,
+        )
+    except ValueError as exc:
+        return templates.TemplateResponse(
+            request,
+            "branding.html",
+            {
+                "user": user,
+                "project": project,
+                "branding": branding,
+                "saved": None,
+                "error": str(exc),
+            },
+            status_code=400,
+        )
+    if branding is None:
+        branding = Branding(project_id=project.id, **values)
+        session.add(branding)
+    else:
+        for key, value in values.items():
+            setattr(branding, key, value)
+    await session.commit()
+    return RedirectResponse(f"/projects/{project.id}/branding?saved=1", status_code=303)
+
+
+@router.get("/projects/{project_id}/report", response_class=HTMLResponse)
+async def project_report(
+    project_id: uuid.UUID, request: Request, session: SessionDep, user: DashboardUser
+):
+    if user is None:
+        return RedirectResponse("/login", status_code=303)
+    project = await session.get(Project, project_id)
+    if project is None or project.user_id != user.id:
+        return RedirectResponse("/", status_code=303)
+    branding = await session.scalar(select(Branding).where(Branding.project_id == project.id))
+    scan = await session.scalar(
+        select(Scan)
+        .where(Scan.project_id == project.id, Scan.status == "succeeded")
+        .order_by(Scan.created_at.desc())
+        .limit(1)
+    )
+    impact_counts: dict = {}
+    if scan is not None:
+        impact_rows = (
+            await session.execute(
+                select(Violation.impact, func.count())
+                .where(Violation.scan_id == scan.id)
+                .group_by(Violation.impact)
+            )
+        ).all()
+        impact_counts = {(impact or "unknown"): count for impact, count in impact_rows}
+    # The accent is inlined into report CSS, so re-validate even for branding saved via the
+    # API (which doesn't go through parse_branding) to keep the report injection-safe.
+    accent = _DEFAULT_ACCENT
+    if branding is not None and branding.primary_color and is_hex_color(branding.primary_color):
+        accent = branding.primary_color
+    logo_ok = bool(
+        branding is not None
+        and branding.logo_url
+        and branding.logo_url.startswith(("http://", "https://"))
+    )
+    return templates.TemplateResponse(
+        request,
+        "report.html",
+        {
+            "user": user,
+            "project": project,
+            "branding": branding,
+            "scan": scan,
+            "impact_counts": impact_counts,
+            "impact_order": _IMPACT_ORDER,
+            "accent": accent,
+            "logo_ok": logo_ok,
+            "generated_at": datetime.now(UTC),
         },
     )

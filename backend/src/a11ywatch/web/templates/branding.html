@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+{% block content %}
+<p><a href="/projects/{{ project.id }}">← {{ project.name }}</a></p>
+<h1>Report branding</h1>
+<p class="muted">White-label the PDF report for {{ project.name }}.</p>
+{% if saved %}<p class="muted">Saved ✓</p>{% endif %}
+{% if error %}<p class="error">{{ error }}</p>{% endif %}
+<form method="post" action="/projects/{{ project.id }}/branding" class="inline" style="flex-direction:column; max-width:440px;">
+  <input name="company_name" maxlength="200" placeholder="Agency / company name" value="{{ branding.company_name or '' }}" />
+  <input name="logo_url" type="url" placeholder="Logo URL (https://…)" value="{{ branding.logo_url or '' }}" />
+  <input name="primary_color" placeholder="Brand color (e.g. #1a56db)" value="{{ branding.primary_color or '' }}" />
+  <textarea name="report_footer" rows="3" placeholder="Report footer (optional)">{{ branding.report_footer or '' }}</textarea>
+  <button type="submit">Save branding</button>
+</form>
+<p class="muted" style="margin-top:16px;"><a href="/projects/{{ project.id }}/report">View white-label report →</a></p>
+{% endblock %}

@@ -4,7 +4,7 @@ from datetime import UTC, datetime, timedelta
 from sqlalchemy import func, select
 
 from a11ywatch.core.security import hash_password
-from a11ywatch.models.tables import Project, Scan, User, Violation
+from a11ywatch.models.tables import Branding, Project, Scan, User, Violation
 
 
 async def _register(client, email="dash@example.com", password="secret123"):
@@ -365,6 +365,98 @@ async def test_scan_page_404s_for_non_owner(client, db_session):
 
     r = await client.get(f"/scans/{scan.id}")
     assert r.status_code in (303, 404)  # must not render another user's scan
+
+
+async def test_branding_save_and_report_render(client, db_session):
+    await _register(client)
+    await _login(client)
+    user = await db_session.scalar(select(User).where(User.email == "dash@example.com"))
+    project = Project(user_id=user.id, name="Acme Site", base_url="https://acme.example.com")
+    db_session.add(project)
+    await db_session.flush()
+    scan = Scan(
+        project_id=project.id,
+        trigger="on_demand",
+        status="succeeded",
+        total_issues=2,
+        new_issues=3,
+        resolved_issues=5,
+        pages_scanned=4,
+        finished_at=datetime.now(UTC),
+    )
+    db_session.add(scan)
+    await db_session.commit()
+
+    r = await client.post(
+        f"/projects/{project.id}/branding",
+        data={
+            "company_name": "Acme Agency",
+            "logo_url": "https://acme.com/logo.png",
+            "primary_color": "#1a56db",
+            "report_footer": "Prepared by Acme",
+        },
+    )
+    assert r.status_code == 303
+    branding = await db_session.scalar(
+        select(Branding).where(Branding.project_id == project.id)
+    )
+    assert branding.company_name == "Acme Agency"
+
+    body = (await client.get(f"/projects/{project.id}/report")).text
+    assert "Acme Agency" in body  # white-label name
+    assert "3 new" in body  # diff vs previous scan
+    assert "5 fixed" in body
+    assert "compliance" not in body.lower()
+
+
+async def test_report_without_scan_shows_placeholder(client, db_session):
+    await _register(client)
+    await _login(client)
+    user = await db_session.scalar(select(User).where(User.email == "dash@example.com"))
+    project = Project(user_id=user.id, name="Fresh", base_url="https://fresh.example.com")
+    db_session.add(project)
+    await db_session.commit()
+
+    body = (await client.get(f"/projects/{project.id}/report")).text
+    assert "run a scan" in body.lower()
+
+
+async def test_branding_save_rejects_bad_color(client, db_session):
+    await _register(client)
+    await _login(client)
+    user = await db_session.scalar(select(User).where(User.email == "dash@example.com"))
+    project = Project(user_id=user.id, name="P", base_url="https://ex.com")
+    db_session.add(project)
+    await db_session.commit()
+
+    r = await client.post(
+        f"/projects/{project.id}/branding", data={"primary_color": "red; }"}
+    )
+    assert r.status_code == 400
+
+
+async def test_branding_and_report_reject_non_owner(client, db_session):
+    await _register(client)
+    await _login(client)
+    other = User(email="other@example.com", password_hash=hash_password("secret123"))
+    db_session.add(other)
+    await db_session.flush()
+    project = Project(user_id=other.id, name="Theirs", base_url="https://theirs.example.com")
+    db_session.add(project)
+    await db_session.commit()
+
+    r_report = await client.get(f"/projects/{project.id}/report")
+    assert r_report.status_code == 303
+    assert r_report.headers["location"] == "/"
+    r_save = await client.post(
+        f"/projects/{project.id}/branding", data={"company_name": "Hijack"}
+    )
+    assert r_save.status_code == 303
+    assert r_save.headers["location"] == "/"
+    count = await db_session.scalar(
+        select(func.count()).select_from(Branding).where(Branding.project_id == project.id)
+    )
+    assert count == 0
 
 
 async def test_logout_clears_cookie(client):

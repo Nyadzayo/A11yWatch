@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% block head %}
+<style>
+  .report-header { border-bottom:3px solid {{ accent }}; padding-bottom:12px; margin-bottom:16px; }
+  .report-header h1 { color:{{ accent }}; margin:8px 0 2px; }
+  .report-logo { max-height:48px; display:block; margin-bottom:8px; }
+  .report-summary li { margin:2px 0; }
+  @media print {
+    header, .noprint { display:none !important; }
+    main { max-width:none; padding:0; }
+    body { background:#fff; }
+  }
+</style>
+{% endblock %}
+{% block content %}
+<p class="noprint"><a href="/projects/{{ project.id }}">← {{ project.name }}</a></p>
+<div class="report-header">
+  {% if logo_ok %}<img class="report-logo" src="{{ branding.logo_url }}" alt="{{ branding.company_name or project.name }}" />{% endif %}
+  <h1>{{ branding.company_name or 'Accessibility report' }}</h1>
+  <p class="muted">{{ project.name }} — {{ project.base_url }}</p>
+</div>
+{% if scan %}
+<p class="muted">Latest scan: {{ (scan.finished_at or scan.created_at).strftime('%Y-%m-%d %H:%M UTC') }}</p>
+<h2>Summary</h2>
+<p><strong>{{ scan.total_issues }}</strong> open accessibility issues across {{ scan.pages_scanned }} page{{ 's' if scan.pages_scanned != 1 else '' }}.</p>
+<p><strong>{{ scan.new_issues }} new</strong> · <strong>{{ scan.resolved_issues }} fixed</strong> since the previous scan.</p>
+{% if impact_counts %}
+<ul class="report-summary">
+  {%- for impact in impact_order %}{% if impact_counts.get(impact) %}<li><span class="sev {{ impact }}">{{ impact_counts[impact] }}</span> {{ impact }}</li>{% endif %}{% endfor -%}
+</ul>
+{% endif %}
+{% else %}
+<p class="muted">No completed scan yet — run a scan to generate a report.</p>
+{% endif %}
+{% if branding and branding.report_footer %}<p class="muted" style="margin-top:24px;">{{ branding.report_footer }}</p>{% endif %}
+<p class="muted">Report generated {{ generated_at.strftime('%Y-%m-%d %H:%M UTC') }}</p>
+<button class="noprint" onclick="window.print()">Print / Save as PDF</button>
+{% endblock %}

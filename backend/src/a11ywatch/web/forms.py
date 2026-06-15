@@ -51,6 +51,50 @@ def parse_project_settings(
     return out
 
 
+def is_hex_color(value: str) -> bool:
+    digits = value.lstrip("#")
+    return len(digits) in (3, 6) and all(c in "0123456789abcdefABCDEF" for c in digits)
+
+
+def _normalize_hex_color(value: str) -> str:
+    digits = value.lstrip("#").lower()
+    if len(digits) == 3:
+        digits = "".join(c * 2 for c in digits)
+    return "#" + digits
+
+
+def parse_branding(
+    *,
+    company_name: str | None,
+    logo_url: str | None,
+    primary_color: str | None,
+    report_footer: str | None,
+) -> dict:
+    """Validate and normalize white-label branding into model kwargs.
+
+    Raises ``ValueError`` on a non-http logo URL or a malformed brand color (the color
+    is later inlined into report CSS, so it must be a safe hex value). Blank fields → None.
+    """
+    name = (company_name or "").strip()
+    if len(name) > 200:
+        raise ValueError("Company name must be 200 characters or fewer")
+
+    logo = (logo_url or "").strip()
+    if logo and not _is_http_url(logo):
+        raise ValueError("Logo URL must start with http:// or https://")
+
+    color = (primary_color or "").strip()
+    if color and not is_hex_color(color):
+        raise ValueError("Brand color must be a hex value like #1a56db")
+
+    return {
+        "company_name": name or None,
+        "logo_url": logo or None,
+        "primary_color": _normalize_hex_color(color) if color else None,
+        "report_footer": (report_footer or "").strip() or None,
+    }
+
+
 def frequency_label(minutes: int) -> str:
     """Human label for a stored scan-frequency value (inverse of FREQUENCY_MINUTES)."""
     for name, mins in FREQUENCY_MINUTES.items():
