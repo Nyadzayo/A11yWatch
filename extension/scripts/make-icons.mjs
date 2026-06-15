@@ -5,10 +5,26 @@ import { mkdirSync, writeFileSync } from 'node:fs'
 import { deflateSync } from 'node:zlib'
 
 const MASTER = 768 // divisible by 16/32/48/128 for integer downsampling
-// Marketing palette: ink square, peach eye ring, rust pupil (matches docs/assets/favicon.svg).
-const INK = [26, 23, 20] // #1A1714
-const PEACH = [232, 167, 143] // #E8A78F
-const RUST = [178, 58, 30] // #B23A1E
+// Marketing palette (docs/assets/favicon.svg): ink square, cream sclera, rust iris, peach rim.
+// Gradient endpoints give the eye depth (iris radial shade, sclera + eyelid shading, catchlight).
+const PEACH = [232, 167, 143] // #E8A78F — almond rim
+const WHITE = [255, 255, 255] // catchlight
+const BG_TOP = [37, 30, 24] // #251E18 — ink square, lit from top
+const BG_BOTTOM = [22, 19, 15] // #16130F
+const SCLERA_TOP = [255, 253, 249] // #FFFDF9
+const SCLERA_BOTTOM = [240, 230, 214] // #F0E6D6
+const EYELID_SHADOW = [40, 28, 20] // warm shade under the upper lid
+const IRIS_IN = [203, 82, 48] // #CB5230 — bright centre
+const IRIS_OUT = [126, 41, 18] // #7E2912 — deep edge
+const IRIS_RIM = [94, 31, 15] // #5E1F0F — limbal ring
+const PUPIL = [21, 14, 9] // #150E09
+
+const clamp01 = (t) => (t < 0 ? 0 : t > 1 ? 1 : t)
+const smooth = (t) => {
+  t = clamp01(t)
+  return t * t * (3 - 2 * t)
+}
+const mix = (a, b, t) => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t]
 
 // Signed distance to a full-bleed rounded square; <= 0 is inside.
 function sdfRoundRect(x, y, size, r) {
@@ -25,18 +41,50 @@ function renderMaster() {
   const buf = new Float64Array(s * s * 4) // premultiplied rgba, 0..255
   const cx = s / 2
   const cy = s / 2
-  const cornerR = s * 0.22 // ink rounded square
-  const ringOuter = s * 0.3
-  const ringInner = s * 0.2 // peach eye ring (annulus)
-  const pupilR = s * 0.11 // rust pupil
+  const cornerR = s * 0.22 // ink rounded square (favicon rx)
+  // Almond (vesica) eye: intersection of two equal circles offset vertically. Pick R and the
+  // offset c from the desired half-width w and half-height h of the eye.
+  const w = s * 0.34
+  const h = s * 0.2
+  const R = (w * w + h * h) / (2 * h)
+  const c = R - h
+  const ay = cy + c // lower circle centre
+  const by = cy - c // upper circle centre
+  const irisR = s * 0.135
+  const pupilR = s * 0.062
+  const rim = s * 0.018 // peach outline half-width
+  const hiR = s * 0.032 // catchlight
+  const hiX = cx - s * 0.06
+  const hiY = cy - s * 0.075
   for (let y = 0; y < s; y++) {
     for (let x = 0; x < s; x++) {
       const i = (y * s + x) * 4
-      if (sdfRoundRect(x + 0.5, y + 0.5, s, cornerR) > 0) continue // transparent corners
-      const d = Math.hypot(x + 0.5 - cx, y + 0.5 - cy)
-      let rgb = INK
-      if (d <= ringOuter && d > ringInner) rgb = PEACH
-      if (d <= pupilR) rgb = RUST
+      const px = x + 0.5
+      const py = y + 0.5
+      if (sdfRoundRect(px, py, s, cornerR) > 0) continue // transparent corners
+      const dA = Math.hypot(px - cx, py - ay)
+      const dB = Math.hypot(px - cx, py - by)
+      const insideLens = dA <= R && dB <= R
+      let rgb = mix(BG_TOP, BG_BOTTOM, py / s) // ink square, subtle top light
+      if (insideLens) {
+        // sclera: cream, lighter at top, with a soft shadow cast by the upper lid
+        rgb = mix(SCLERA_TOP, SCLERA_BOTTOM, clamp01((py - (cy - h)) / (2 * h)))
+        rgb = mix(rgb, EYELID_SHADOW, smooth(1 - (R - dB) / (h * 0.7)) * 0.16)
+        const di = Math.hypot(px - cx, py - cy)
+        if (di <= irisR) {
+          rgb = mix(IRIS_IN, IRIS_OUT, smooth(di / irisR)) // radial iris
+          if (di > irisR - rim * 1.6) {
+            rgb = mix(rgb, IRIS_RIM, smooth((di - (irisR - rim * 1.6)) / (rim * 1.6)) * 0.9)
+          }
+        }
+        if (di <= pupilR) rgb = PUPIL
+        const dHi = Math.hypot(px - hiX, py - hiY)
+        if (dHi <= hiR * 1.6) rgb = mix(rgb, WHITE, smooth(1 - dHi / (hiR * 1.6))) // soft catchlight
+      }
+      // peach rim traces the almond outline (straddles the lens boundary)
+      const onLower = Math.abs(dA - R) <= rim && dB <= R + rim
+      const onUpper = Math.abs(dB - R) <= rim && dA <= R + rim
+      if (onLower || onUpper) rgb = PEACH
       buf[i] = rgb[0]
       buf[i + 1] = rgb[1]
       buf[i + 2] = rgb[2]

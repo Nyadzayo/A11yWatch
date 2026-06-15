@@ -1,4 +1,4 @@
-# Extension — A11yWatch (Manifest V3, TypeScript + Vite/CRXJS)
+# Extension — A11yTrail (Manifest V3, TypeScript + Vite/CRXJS)
 
 A **standalone, fully client-side** accessibility checker. Click the toolbar icon → the popup
 injects **bundled axe-core** into the current tab via `chrome.scripting`, runs the scan **in

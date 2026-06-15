@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
-  "name": "A11yWatch — Accessibility Checker",
+  "name": "A11yTrail — Accessibility Checker (WCAG & ADA)",
   "version": "0.1.0",
-  "description": "Find accessibility issues on the current page — severity, fix guidance, and WCAG references. Runs fully in your browser.",
+  "description": "Free WCAG & ADA accessibility checker — scan any page for accessibility issues and get fix guidance.",
   "permissions": ["activeTab", "scripting"],
   "icons": {
     "16": "icons/icon16.png",
@@ -11,7 +11,7 @@
     "128": "icons/icon128.png"
   },
   "action": {
-    "default_title": "A11yWatch — Accessibility Checker",
+    "default_title": "A11yTrail — Accessibility Checker (WCAG & ADA)",
     "default_popup": "src/popup/index.html",
     "default_icon": {
       "16": "icons/icon16.png",

@@ -259,9 +259,9 @@ function setupExportMenu(): void {
     if (!item || !scan) return
     const host = hostOf(scan.url) || 'page'
     if (item.dataset.export === 'html') {
-      download(`a11ywatch-${host}.html`, exportHtml(scan), 'text/html')
+      download(`a11ytrail-${host}.html`, exportHtml(scan), 'text/html')
     } else if (item.dataset.export === 'json') {
-      download(`a11ywatch-${host}.json`, exportJson(scan), 'application/json')
+      download(`a11ytrail-${host}.json`, exportJson(scan), 'application/json')
     } else if (item.dataset.export === 'copy') {
       const ok = await copyText(exportJson(scan))
       flash(item, ok ? 'Copied' : 'Copy failed', 'Copy summary')

@@ -7,7 +7,7 @@
 import type { AxeResults } from '../lib/types'
 import { ACTIVE_AXE_TAGS } from '../lib/wcag'
 
-const OVERLAY_ATTR = 'data-a11ywatch-overlay'
+const OVERLAY_ATTR = 'data-a11ytrail-overlay'
 
 /** URLs we cannot script (restricted schemes + the Web Store). */
 export function isScannableUrl(url: string | undefined): boolean {

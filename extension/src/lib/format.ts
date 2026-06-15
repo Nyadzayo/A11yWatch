@@ -17,7 +17,7 @@ function levelLine(issue: Issue): string | null {
 /** A plain-text block to paste into a bug tracker for one issue. */
 export function ticketText(issue: Issue): string {
   const lines = [
-    `[A11yWatch] ${issue.help}`,
+    `[A11yTrail] ${issue.help}`,
     `Rule: ${issue.ruleId} (${impactLabel(issue)})`,
   ]
   const std = levelLine(issue)
@@ -64,7 +64,7 @@ export function exportJson(scan: ScanData): string {
   return JSON.stringify(
     {
       url: scan.url,
-      tool: 'A11yWatch extension (axe-core)',
+      tool: 'A11yTrail extension (axe-core)',
       summary: summaryOf(scan),
       issues: scan.issues,
       needsReview: scan.needsReview,

@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>A11yTrail marquee promo tile</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Hanken+Grotesk:wght@400;500;600&display=swap" />
+<style>
+  html, body { margin: 0; }
+  .tile { width: 1400px; height: 560px; box-sizing: border-box; overflow: hidden; position: relative;
+    display: flex; align-items: center; padding: 0 92px;
+    background: radial-gradient(900px 600px at 88% 50%, #2a231d 0%, rgba(42,35,29,0) 62%), linear-gradient(150deg, #1a1714 0%, #241d18 100%);
+    font-family: "Hanken Grotesk", system-ui, sans-serif; color: #fbf7f0; }
+  .eye-watermark { position: absolute; right: -40px; top: 50%; transform: translateY(-50%); width: 460px; height: 460px; border-radius: 96px; opacity: 0.92;
+    box-shadow: 0 40px 90px rgba(0,0,0,0.5); }
+  .content { position: relative; max-width: 760px; }
+  .brandrow { display: flex; align-items: center; gap: 14px; margin-bottom: 26px; }
+  .brandrow img { width: 46px; height: 46px; border-radius: 11px; }
+  .brandrow .wm { font-family: "Fraunces", Georgia, serif; font-weight: 600; font-size: 30px; letter-spacing: -0.01em; }
+  .brandrow .wm b { color: #e8a78f; }
+  h1 { font-family: "Fraunces", Georgia, serif; font-weight: 600; font-size: 64px; line-height: 1.03; letter-spacing: -0.02em; margin: 0 0 22px; }
+  h1 em { color: #e8a78f; font-style: italic; }
+  .tag { font-size: 22px; line-height: 1.5; color: #cfc4b4; margin: 0 0 30px; max-width: 30ch; }
+  .pills { display: flex; gap: 12px; }
+  .pill { font-size: 16px; font-weight: 600; color: #1a1714; background: #e8a78f; border-radius: 999px; padding: 8px 18px; }
+  .pill.alt { background: #3a302a; color: #e8dfd2; }
+</style>
+</head>
+<body>
+<div class="tile">
+  <img class="eye-watermark" src="../icons/icon128.png" alt="" />
+  <div class="content">
+    <div class="brandrow"><img src="../icons/icon128.png" alt="" /><span class="wm">A11y<b>Trail</b></span></div>
+    <h1>Find &amp; fix <em>accessibility issues</em>.</h1>
+    <p class="tag">A free WCAG &amp; ADA accessibility checker that runs in your browser — severity, fixes, and monitoring for agencies.</p>
+    <div class="pills"><span class="pill">One-click scan</span><span class="pill alt">Runs locally</span><span class="pill alt">No account</span></div>
+  </div>
+</div>
+</body>
+</html>
