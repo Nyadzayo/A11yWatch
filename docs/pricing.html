@@ -1,0 +1,185 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Pricing — A11yWatch</title>
+<meta name="description" content="Simple pricing that scales with the sites you watch. Every paid plan includes scheduled monitoring, regression alerts, issue history, and reports. Cancel anytime.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,500;0,9..144,600;0,9..144,700;1,9..144,500&family=Hanken+Grotesk:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="assets/styles.css">
+<link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+</head>
+<body>
+<a class="skip-link" href="#main">Skip to content</a>
+<header class="site-header">
+  <div class="container site-header__inner">
+    <a class="site-header__brand" href="index.html" aria-label="A11yWatch — home">
+      <svg class="logo-lockup" width="186" height="30" viewBox="0 0 186 30" role="img" aria-labelledby="hdrLogoTitle" focusable="false">
+        <title id="hdrLogoTitle">A11yWatch</title>
+        <g aria-hidden="true">
+          <rect x="1" y="1" width="28" height="28" rx="6" fill="#1A1714"/>
+          <path d="M6 15 H9 L11 8 L14 22 L16.5 11 L18.5 19 L20.5 15 H24" fill="none" stroke="#E8A78F" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+          <circle cx="24" cy="15" r="2.1" fill="#B23A1E"/>
+        </g>
+        <text x="39" y="21" font-family="Fraunces, Georgia, serif" font-size="21" font-weight="600" letter-spacing="-0.01em" fill="#1A1714">A11y<tspan fill="#B23A1E">Watch</tspan></text>
+      </svg>
+    </a>
+
+    <details class="nav-disclosure">
+      <summary class="nav-disclosure__toggle" aria-label="Menu">
+        <span class="nav-disclosure__bars" aria-hidden="true"></span>
+        <span class="nav-disclosure__label">Menu</span>
+      </summary>
+      <div class="nav-disclosure__panel">
+        <nav class="main-nav" aria-label="Primary">
+          <ul class="main-nav__list">
+            <li><a class="main-nav__link" href="index.html">Home</a></li>
+            <li><a class="main-nav__link" href="pricing.html" aria-current="page">Pricing</a></li>
+          </ul>
+        </nav>
+        <div class="site-header__cta">
+          <a class="btn btn-secondary" href="[CHROME_STORE_URL]">Scan a page free</a>
+          <a class="btn btn-primary" href="[SIGNUP_URL]">Start monitoring</a>
+        </div>
+      </div>
+    </details>
+  </div>
+</header>
+<main id="main">
+<section class="section" aria-labelledby="pricing-heading">
+  <div class="container">
+    <h1 class="section-title" id="pricing-heading">Simple pricing that scales with the sites you watch.</h1>
+    <p class="lede">Every paid plan includes scheduled monitoring, regression alerts, issue history, and reports. Cancel anytime. Pay yearly and get 2 months free.</p>
+
+    <div class="banner">
+      <div class="banner__text">
+        <h2 class="banner__title"><span aria-hidden="true">🚀</span> Founding offer</h2>
+        <p>the first <strong>20 agencies</strong> lock in <strong>40% off for life.</strong> Limited spots.</p>
+      </div>
+      <a class="btn btn-primary" href="[SIGNUP_URL]">Start monitoring</a>
+    </div>
+
+    <div class="pricing-grid">
+      <div class="plan-card">
+        <p class="plan-name">Free</p>
+        <p class="plan-price">$0</p>
+        <p class="plan-tagline">The A11yWatch browser extension.</p>
+        <div class="plan-card__rule" aria-hidden="true"></div>
+        <ul class="feature-list">
+          <li>One-click single-page accessibility scans</li>
+          <li>Issues explained in plain English</li>
+          <li>No account required</li>
+        </ul>
+        <a class="btn btn-secondary" href="[CHROME_STORE_URL]">Add to Chrome</a>
+      </div>
+
+      <div class="plan-card">
+        <p class="plan-name">Starter</p>
+        <p class="plan-price">$12 <span class="plan-period">/ month</span></p>
+        <p class="plan-tagline">$120/yr · For a freelancer with a single site to watch.</p>
+        <div class="plan-card__rule" aria-hidden="true"></div>
+        <ul class="feature-list">
+          <li><strong>1</strong> monitored site</li>
+          <li>Scheduled re-scans + regression alerts</li>
+          <li>Issue history &amp; PDF reports</li>
+        </ul>
+        <a class="btn btn-primary" href="[SIGNUP_URL]">Start Starter</a>
+      </div>
+
+      <div class="plan-card">
+        <p class="plan-name">Solo</p>
+        <p class="plan-price">$29 <span class="plan-period">/ month</span></p>
+        <p class="plan-tagline">$290/yr · For freelancers maintaining a handful of sites.</p>
+        <div class="plan-card__rule" aria-hidden="true"></div>
+        <ul class="feature-list">
+          <li>Up to <strong>3</strong> monitored sites</li>
+          <li>Everything in Starter</li>
+          <li>Prioritized issue triage</li>
+        </ul>
+        <a class="btn btn-primary" href="[SIGNUP_URL]">Start Solo</a>
+      </div>
+
+      <div class="plan-card plan-card--featured">
+        <span class="badge">Most popular</span>
+        <p class="plan-name">Agency</p>
+        <p class="plan-price">$99 <span class="plan-period">/ month</span></p>
+        <p class="plan-tagline">$990/yr · For agencies turning accessibility into a service.</p>
+        <div class="plan-card__rule" aria-hidden="true"></div>
+        <ul class="feature-list">
+          <li>Up to <strong>25</strong> monitored sites</li>
+          <li>Everything in Solo</li>
+          <li><strong>White-label branded reports</strong></li>
+          <li>Multi-site dashboard</li>
+        </ul>
+        <a class="btn btn-primary" href="[SIGNUP_URL]">Start Agency</a>
+      </div>
+
+      <div class="plan-card">
+        <p class="plan-name">Agency+</p>
+        <p class="plan-price">$199 <span class="plan-period">/ month</span></p>
+        <p class="plan-tagline">$1,990/yr · For agencies managing accessibility at scale.</p>
+        <div class="plan-card__rule" aria-hidden="true"></div>
+        <ul class="feature-list">
+          <li>Up to <strong>100</strong> monitored sites</li>
+          <li>Everything in Agency</li>
+          <li><strong>Branded client portal</strong></li>
+          <li><strong>API access</strong></li>
+          <li>Priority support</li>
+        </ul>
+        <a class="btn btn-primary" href="[SIGNUP_URL]">Start Agency+</a>
+      </div>
+    </div>
+
+    <p class="lede">All plans billed through Paddle, in USD. Annual billing saves two months. Each monitored site includes up to <strong>100 pages per scan</strong> — need more, or more than 100 sites? <a href="mailto:kelvin.nyadzayo16@gmail.com">Contact us</a>. Cancel anytime.</p>
+  </div>
+</section>
+</main>
+<footer class="site-footer">
+  <div class="container site-footer__inner">
+    <div class="site-footer__brand">
+      <svg class="logo-lockup" width="160" height="26" viewBox="0 0 186 30" role="img" aria-labelledby="ftrLogoTitle" focusable="false">
+        <title id="ftrLogoTitle">A11yWatch</title>
+        <g aria-hidden="true">
+          <rect x="1" y="1" width="28" height="28" rx="6" fill="#E8DFD2"/>
+          <path d="M6 15 H9 L11 8 L14 22 L16.5 11 L18.5 19 L20.5 15 H24" fill="none" stroke="#26201B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+          <circle cx="24" cy="15" r="2.1" fill="#E8A78F"/>
+        </g>
+        <text x="39" y="21" font-family="Fraunces, Georgia, serif" font-size="21" font-weight="600" letter-spacing="-0.01em" fill="#FBF7F0">A11y<tspan fill="#E8A78F">Watch</tspan></text>
+      </svg>
+      <p class="site-footer__tagline">A standing watch on your accessibility. We report what automated checks find and alert you when something breaks &mdash; we don&rsquo;t certify that any site meets a legal standard.</p>
+    </div>
+
+    <nav class="footer-cols" aria-label="Footer">
+      <div class="footer-col">
+        <h2 class="footer-col__head">Product</h2>
+        <ul class="footer-col__list">
+          <li><a href="index.html">Home</a></li>
+          <li><a href="pricing.html">Pricing</a></li>
+        </ul>
+      </div>
+      <div class="footer-col">
+        <h2 class="footer-col__head">Legal</h2>
+        <ul class="footer-col__list">
+          <li><a href="terms-of-service.html">Terms</a></li>
+          <li><a href="privacy-policy.html">Privacy</a></li>
+          <li><a href="refund-policy.html">Refund</a></li>
+        </ul>
+      </div>
+      <div class="footer-col">
+        <h2 class="footer-col__head">Contact</h2>
+        <ul class="footer-col__list">
+          <li><a href="mailto:kelvin.nyadzayo16@gmail.com">kelvin.nyadzayo16@gmail.com</a></li>
+        </ul>
+      </div>
+    </nav>
+  </div>
+
+  <div class="container site-footer__base">
+    <p class="site-footer__copy">&copy; [LEGAL COMPANY NAME] [YEAR]</p>
+    <p class="site-footer__signal"><span aria-hidden="true">&#9679;</span> Monitoring active</p>
+  </div>
+</footer>
+</body>
+</html>
