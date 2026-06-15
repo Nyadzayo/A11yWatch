@@ -246,6 +246,40 @@ async def test_project_page_shows_scan_settings(client, db_session):
     assert "specific pages" in body.lower()
 
 
+async def test_overview_uses_most_recently_finished_scan(client, db_session):
+    # Out-of-order completion: a scan created later but finished EARLIER must not be
+    # treated as "current". The latest succeeded scan is the most recently finished one.
+    await _register(client)
+    await _login(client)
+    user = await db_session.scalar(select(User).where(User.email == "dash@example.com"))
+    project = Project(user_id=user.id, name="P", base_url="https://ex.com")
+    db_session.add(project)
+    await db_session.flush()
+    now = datetime.now(UTC)
+    created_later_finished_earlier = Scan(
+        project_id=project.id,
+        trigger="scheduled",
+        status="succeeded",
+        total_issues=9,
+        created_at=now,
+        finished_at=now - timedelta(hours=2),
+    )
+    created_earlier_finished_later = Scan(
+        project_id=project.id,
+        trigger="on_demand",
+        status="succeeded",
+        total_issues=2,
+        created_at=now - timedelta(hours=1),
+        finished_at=now - timedelta(minutes=1),
+    )
+    db_session.add_all([created_later_finished_earlier, created_earlier_finished_later])
+    await db_session.commit()
+
+    body = (await client.get("/")).text
+    assert 'class="issue-count">2<' in body  # most recently finished scan
+    assert 'class="trend improved"' in body  # 2 (latest) < 9 (previous) => improved
+
+
 async def test_scan_now_enqueues_and_redirects(client, db_session):
     await _register(client)
     await _login(client)
@@ -348,6 +382,41 @@ async def test_project_page_trend_absent_with_single_scan(client, db_session):
 
     body = (await client.get(f"/projects/{project.id}")).text
     assert 'class="trend ' not in body  # no trend badge without a baseline
+
+
+async def test_project_page_trend_uses_most_recently_finished_scan(client, db_session):
+    # Same out-of-order-completion guard as the overview, on the project page path.
+    await _register(client)
+    await _login(client)
+    user = await db_session.scalar(select(User).where(User.email == "dash@example.com"))
+    project = Project(user_id=user.id, name="P", base_url="https://ex.com")
+    db_session.add(project)
+    await db_session.flush()
+    now = datetime.now(UTC)
+    db_session.add_all(
+        [
+            Scan(
+                project_id=project.id,
+                trigger="scheduled",
+                status="succeeded",
+                total_issues=9,
+                created_at=now,
+                finished_at=now - timedelta(hours=2),
+            ),
+            Scan(
+                project_id=project.id,
+                trigger="on_demand",
+                status="succeeded",
+                total_issues=2,
+                created_at=now - timedelta(hours=1),
+                finished_at=now - timedelta(minutes=1),
+            ),
+        ]
+    )
+    await db_session.commit()
+
+    body = (await client.get(f"/projects/{project.id}")).text
+    assert 'class="trend improved"' in body  # latest (finished last) = 2 < previous 9
 
 
 async def test_scan_page_404s_for_non_owner(client, db_session):
@@ -490,6 +559,17 @@ async def test_register_short_password_does_not_leak_account_existence(client):
         data={"email": "brandnew@example.com", "password": "short", "create_account": "on"},
     )
     assert r_exists.status_code == r_new.status_code
+
+
+async def test_login_unknown_email_still_runs_password_check(client, mocker):
+    # Constant-work: bcrypt verification must run even when the email doesn't exist, so
+    # response time can't reveal account existence (timing-based enumeration oracle).
+    spy = mocker.patch("a11ywatch.web.router.verify_password", return_value=False)
+    r = await client.post(
+        "/login", data={"email": "ghost@example.com", "password": "whatever123"}
+    )
+    assert r.status_code == 401
+    assert spy.called  # password check performed despite the unknown account
 
 
 async def test_login_cookie_flags(client):

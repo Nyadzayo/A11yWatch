@@ -21,7 +21,12 @@ from a11ywatch.core.security import (
 )
 from a11ywatch.jobs.dispatch import enqueue_scan
 from a11ywatch.models.tables import Branding, Project, Scan, User, Violation
-from a11ywatch.web.forms import frequency_label, is_hex_color, parse_branding, parse_project_settings
+from a11ywatch.web.forms import (
+    frequency_label,
+    is_hex_color,
+    parse_branding,
+    parse_project_settings,
+)
 from a11ywatch.web.trends import NO_BASELINE, scan_trend
 
 router = APIRouter(tags=["dashboard"], include_in_schema=False)
@@ -31,6 +36,9 @@ COOKIE_NAME = "a11ywatch_session"
 _IMPACT_ORDER = ["critical", "serious", "moderate", "minor"]
 # A full-site crawl can produce thousands of issues; cap how many we render per page.
 _SCAN_DISPLAY_LIMIT = 200
+# Verified against this when the email is unknown so login response time doesn't reveal
+# whether an account exists (constant-work guard against timing-based enumeration).
+_DUMMY_PASSWORD_HASH = hash_password("a11ywatch-timing-equalizer")
 
 
 async def current_dashboard_user(request: Request, session: SessionDep) -> User | None:
@@ -94,7 +102,12 @@ async def _overview_rows(session, user) -> list[dict]:
     # The two most recent *succeeded* scans per project (rank 1 = latest, 2 = previous).
     scan_rank = (
         func.row_number()
-        .over(partition_by=Scan.project_id, order_by=Scan.created_at.desc())
+        .over(
+            partition_by=Scan.project_id,
+            # Most recently *finished* scan is the current one; created_at + id are
+            # deterministic tiebreakers so a created_at collision can't swap latest/previous.
+            order_by=(Scan.finished_at.desc(), Scan.created_at.desc(), Scan.id.desc()),
+        )
         .label("scan_rank")
     )
     ranked = (
@@ -207,7 +220,13 @@ async def login_submit(
             await session.rollback()
             user = await session.scalar(select(User).where(User.email == email))
 
-    if user is None or not verify_password(password, user.password_hash):
+    if user is None:
+        # Run a throwaway verify so an unknown email costs the same as a wrong password.
+        verify_password(password, _DUMMY_PASSWORD_HASH)
+        authenticated = False
+    else:
+        authenticated = verify_password(password, user.password_hash)
+    if not authenticated:
         return templates.TemplateResponse(
             request,
             "login.html",
@@ -298,13 +317,19 @@ async def project_detail(
         await session.scalars(
             select(Scan)
             .where(Scan.project_id == project.id)
-            .order_by(Scan.created_at.desc())
+            .order_by(Scan.created_at.desc(), Scan.id.desc())
             .limit(25)
         )
     ).all()
     # Issue-count-over-time history is built from succeeded scans only (failed/running
-    # scans carry no meaningful total). Newest-first from the query → reverse for the chart.
-    succeeded = [s for s in scans if s.status == "succeeded"]
+    # scans carry no meaningful total), newest-first by completion time. Sorting by
+    # finished_at (with deterministic tiebreakers) keeps the trend sign and chart order
+    # correct even when scans complete out of creation order. Reverse for the chart.
+    succeeded = sorted(
+        (s for s in scans if s.status == "succeeded"),
+        key=lambda s: (s.finished_at or s.created_at, s.id),
+        reverse=True,
+    )
     history = list(reversed(succeeded))
     max_issues = max((s.total_issues for s in history), default=0)
     trend = None
