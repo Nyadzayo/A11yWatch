@@ -74,6 +74,89 @@ def _set_session_cookie(response: RedirectResponse, token: str) -> None:
     )
 
 
+async def _overview_rows(session, user) -> list[dict]:
+    """Build the multi-site overview: one row per project with current issue count,
+    severity breakdown, and trend vs. the previous succeeded scan.
+
+    Uses a fixed number of aggregate queries (projects, ranked recent scans, severity
+    counts) — no per-project query, so it does not degrade with project count.
+    """
+    projects = (
+        await session.scalars(
+            select(Project).where(Project.user_id == user.id).order_by(Project.created_at.desc())
+        )
+    ).all()
+    if not projects:
+        return []
+
+    # The two most recent *succeeded* scans per project (rank 1 = latest, 2 = previous).
+    scan_rank = (
+        func.row_number()
+        .over(partition_by=Scan.project_id, order_by=Scan.created_at.desc())
+        .label("scan_rank")
+    )
+    ranked = (
+        select(
+            Scan.id.label("scan_id"),
+            Scan.project_id.label("project_id"),
+            Scan.total_issues.label("total_issues"),
+            scan_rank,
+        )
+        .join(Project, Project.id == Scan.project_id)
+        .where(Project.user_id == user.id, Scan.status == "succeeded")
+        .subquery()
+    )
+    recent = (
+        await session.execute(
+            select(
+                ranked.c.scan_id,
+                ranked.c.project_id,
+                ranked.c.total_issues,
+                ranked.c.scan_rank,
+            ).where(ranked.c.scan_rank <= 2)
+        )
+    ).all()
+    latest: dict = {}
+    previous: dict = {}
+    for scan_id, project_id, total_issues, r in recent:
+        (latest if r == 1 else previous)[project_id] = (scan_id, total_issues)
+
+    # Severity breakdown for the latest succeeded scan of each project.
+    latest_ids = [scan_id for scan_id, _ in latest.values()]
+    severity: dict = {}
+    if latest_ids:
+        sev_rows = (
+            await session.execute(
+                select(Violation.scan_id, Violation.impact, func.count())
+                .where(Violation.scan_id.in_(latest_ids))
+                .group_by(Violation.scan_id, Violation.impact)
+            )
+        ).all()
+        for scan_id, impact, count in sev_rows:
+            severity.setdefault(scan_id, {})[impact or "unknown"] = count
+
+    rows: list[dict] = []
+    for project in projects:
+        current = latest.get(project.id)
+        if current is None:
+            rows.append({"project": project, "total": None, "severity": {}, "trend": None})
+            continue
+        scan_id, total = current
+        prior = previous.get(project.id)
+        trend = scan_trend(total, prior[1]) if prior else None
+        if trend is not None and trend.direction == NO_BASELINE:
+            trend = None
+        rows.append(
+            {
+                "project": project,
+                "total": total,
+                "severity": severity.get(scan_id, {}),
+                "trend": trend,
+            }
+        )
+    return rows
+
+
 def _group_by_impact(violations: list[Violation]) -> list[dict]:
     buckets: dict[str, list[Violation]] = {}
     for v in violations:
@@ -147,13 +230,9 @@ async def logout():
 async def dashboard(request: Request, session: SessionDep, user: DashboardUser):
     if user is None:
         return RedirectResponse("/login", status_code=303)
-    projects = (
-        await session.scalars(
-            select(Project).where(Project.user_id == user.id).order_by(Project.created_at.desc())
-        )
-    ).all()
+    rows = await _overview_rows(session, user)
     return templates.TemplateResponse(
-        request, "dashboard.html", {"user": user, "projects": projects}
+        request, "dashboard.html", {"user": user, "rows": rows, "impact_order": _IMPACT_ORDER}
     )
 
 
@@ -169,19 +248,13 @@ async def create_project_web(
         return RedirectResponse("/login", status_code=303)
     base_url = base_url.strip()
     if not (base_url.startswith("http://") or base_url.startswith("https://")):
-        projects = (
-            await session.scalars(
-                select(Project)
-                .where(Project.user_id == user.id)
-                .order_by(Project.created_at.desc())
-            )
-        ).all()
         return templates.TemplateResponse(
             request,
             "dashboard.html",
             {
                 "user": user,
-                "projects": projects,
+                "rows": await _overview_rows(session, user),
+                "impact_order": _IMPACT_ORDER,
                 "error": "URL must start with http:// or https://",
             },
             status_code=400,

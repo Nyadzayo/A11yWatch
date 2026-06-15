@@ -7,16 +7,29 @@
   <input name="base_url" type="url" placeholder="https://example.com" required style="flex:1; min-width:220px;" />
   <button type="submit">Add project</button>
 </form>
-{% if projects %}
+{% if rows %}
 <table>
-  <thead><tr><th>Name</th><th>URL</th><th>Status</th><th>Last scan</th></tr></thead>
+  <thead><tr><th>Site</th><th>Issues</th><th>By severity</th><th>Trend</th><th>Last scan</th></tr></thead>
   <tbody>
-    {% for p in projects %}
+    {% for row in rows %}
     <tr>
-      <td><a href="/projects/{{ p.id }}">{{ p.name }}</a></td>
-      <td class="muted">{{ p.base_url }}</td>
-      <td>{{ p.status }}</td>
-      <td class="muted">{% if p.last_scan_at %}{{ p.last_scan_at.strftime('%Y-%m-%d %H:%M') }}{% else %}—{% endif %}</td>
+      <td>
+        <a href="/projects/{{ row.project.id }}">{{ row.project.name }}</a>
+        <br /><small class="muted">{{ row.project.base_url }}</small>
+      </td>
+      <td class="issue-count">{% if row.total is none %}<span class="muted">not scanned yet</span>{% else %}{{ row.total }}{% endif %}</td>
+      <td>
+        {%- for impact in impact_order %}{% if row.severity.get(impact) %}<span class="sev {{ impact }}" title="{{ impact }}">{{ row.severity[impact] }}</span> {% endif %}{% endfor -%}
+        {%- if row.total is not none and not row.severity %}<span class="muted">none</span>{% endif %}
+      </td>
+      <td>
+        {%- if row.trend %}<span class="trend {{ row.trend.direction }}">
+          {%- if row.trend.direction == 'improved' %}▼ {{ row.trend.magnitude }}
+          {%- elif row.trend.direction == 'regressed' %}▲ {{ row.trend.magnitude }}
+          {%- else %}no change{% endif -%}
+        </span>{% else %}<span class="muted">—</span>{% endif -%}
+      </td>
+      <td class="muted">{% if row.project.last_scan_at %}{{ row.project.last_scan_at.strftime('%Y-%m-%d %H:%M') }}{% else %}—{% endif %}</td>
     </tr>
     {% endfor %}
   </tbody>

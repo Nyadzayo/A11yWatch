@@ -70,6 +70,106 @@ async def test_dashboard_lists_only_owners_projects(client, db_session):
     assert "Theirs" not in r.text
 
 
+async def test_overview_shows_issue_count_severity_and_trend(client, db_session):
+    # The overview row for a project must show its current issue count, a severity
+    # breakdown from the latest succeeded scan, and a trend vs. the previous scan.
+    await _register(client)
+    await _login(client)
+    user = await db_session.scalar(select(User).where(User.email == "dash@example.com"))
+    project = Project(user_id=user.id, name="Acme", base_url="https://acme.example.com")
+    db_session.add(project)
+    await db_session.flush()
+    now = datetime.now(UTC)
+    older = Scan(
+        project_id=project.id,
+        trigger="scheduled",
+        status="succeeded",
+        total_issues=5,
+        created_at=now - timedelta(days=1),
+        finished_at=now - timedelta(days=1),
+    )
+    newer = Scan(
+        project_id=project.id,
+        trigger="on_demand",
+        status="succeeded",
+        total_issues=2,
+        created_at=now,
+        finished_at=now,
+    )
+    db_session.add_all([older, newer])
+    await db_session.flush()
+    db_session.add_all(
+        [
+            Violation(
+                scan_id=newer.id,
+                project_id=project.id,
+                page_url="u",
+                rule_id="image-alt",
+                impact="critical",
+                fingerprint="c1",
+            ),
+            Violation(
+                scan_id=newer.id,
+                project_id=project.id,
+                page_url="u",
+                rule_id="label",
+                impact="serious",
+                fingerprint="s1",
+            ),
+        ]
+    )
+    await db_session.commit()
+
+    body = (await client.get("/")).text
+    assert "Acme" in body
+    assert 'class="issue-count">2<' in body  # current count = latest succeeded scan
+    assert 'class="sev critical"' in body  # severity breakdown chip
+    assert 'class="trend improved"' in body  # 2 < 5 => improved vs previous scan
+
+
+async def test_overview_unscanned_project_shows_placeholder(client, db_session):
+    await _register(client)
+    await _login(client)
+    await client.post(
+        "/projects", data={"name": "Fresh", "base_url": "https://fresh.example.com"}
+    )
+    body = (await client.get("/")).text
+    assert "Fresh" in body
+    assert "not scanned yet" in body.lower()
+    assert 'class="trend ' not in body  # no trend badge without a baseline
+
+
+async def test_overview_uses_latest_succeeded_scan_not_failed(client, db_session):
+    # A later failed scan must not clobber the issue count from the last good scan.
+    await _register(client)
+    await _login(client)
+    user = await db_session.scalar(select(User).where(User.email == "dash@example.com"))
+    project = Project(user_id=user.id, name="P", base_url="https://ex.com")
+    db_session.add(project)
+    await db_session.flush()
+    now = datetime.now(UTC)
+    good = Scan(
+        project_id=project.id,
+        trigger="scheduled",
+        status="succeeded",
+        total_issues=7,
+        created_at=now - timedelta(hours=2),
+        finished_at=now - timedelta(hours=2),
+    )
+    failed = Scan(
+        project_id=project.id,
+        trigger="on_demand",
+        status="failed",
+        total_issues=0,
+        created_at=now,
+    )
+    db_session.add_all([good, failed])
+    await db_session.commit()
+
+    body = (await client.get("/")).text
+    assert 'class="issue-count">7<' in body  # last good scan, not the 0 from the failure
+
+
 async def test_scan_now_enqueues_and_redirects(client, db_session):
     await _register(client)
     await _login(client)

@@ -34,6 +34,12 @@
       .trend.unchanged { background:#f3f4f6; color:var(--muted); }
       .bars { display:flex; align-items:flex-end; gap:4px; height:80px; padding:8px 0; }
       .bar { width:22px; min-height:3px; background:var(--accent); border-radius:3px 3px 0 0; }
+      .sev { display:inline-block; min-width:16px; text-align:center; border-radius:4px; padding:1px 6px; color:#fff; font-size:12px; font-weight:600; }
+      .sev.critical { background:var(--critical); }
+      .sev.serious { background:var(--serious); }
+      .sev.moderate { background:var(--moderate); }
+      .sev.minor { background:var(--minor); }
+      td.issue-count { font-weight:600; }
     </style>
   </head>
   <body>
