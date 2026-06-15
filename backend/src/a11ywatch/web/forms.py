@@ -1,7 +1,12 @@
 from urllib.parse import urlsplit
 
+from a11ywatch.models.schemas import validate_channel_target
+
 # Scan-frequency presets offered in the dashboard, mapped to minutes the scheduler uses.
 FREQUENCY_MINUTES = {"hourly": 60, "daily": 1440, "weekly": 10080}
+
+# Alert-channel kinds offered in the dashboard (must match AlertChannelCreate's Literal).
+ALERT_CHANNEL_TYPES = ("email", "webhook", "slack")
 
 
 def _is_http_url(value: str) -> bool:
@@ -93,6 +98,21 @@ def parse_branding(
         "primary_color": _normalize_hex_color(color) if color else None,
         "report_footer": (report_footer or "").strip() or None,
     }
+
+
+def parse_alert_channel(*, channel_type: str, target: str) -> dict:
+    """Validate a regression-alert destination into AlertChannel kwargs.
+
+    Reuses the API's ``validate_channel_target`` so the dashboard and API enforce the
+    same rules. Raises ``ValueError`` with a user-facing message on invalid input.
+    """
+    if channel_type not in ALERT_CHANNEL_TYPES:
+        raise ValueError("Choose a valid channel type")
+    target = (target or "").strip()
+    if not target:
+        raise ValueError("Destination is required")
+    validate_channel_target(channel_type, target)  # raises ValueError if malformed
+    return {"type": channel_type, "target": target, "events": ["new_issues"], "enabled": True}
 
 
 def frequency_label(minutes: int) -> str:

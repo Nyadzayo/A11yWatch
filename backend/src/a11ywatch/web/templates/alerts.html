@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+{% block content %}
+<p><a href="/projects/{{ project.id }}">← {{ project.name }}</a></p>
+<h1>Regression alerts</h1>
+<p class="muted">Where to send a notification when a scan finds new accessibility issues for {{ project.name }}.</p>
+{% if saved %}<p class="muted">Saved ✓</p>{% endif %}
+{% if error %}<p class="error">{{ error }}</p>{% endif %}
+{% if channels %}
+<table>
+  <thead><tr><th>Type</th><th>Destination</th><th>Status</th><th></th></tr></thead>
+  <tbody>
+    {% for c in channels %}
+    <tr>
+      <td>{{ c.type }}</td>
+      <td class="muted">{{ c.target }}</td>
+      <td>{{ 'enabled' if c.enabled else 'disabled' }}</td>
+      <td><form method="post" action="/projects/{{ project.id }}/alerts/{{ c.id }}/delete" class="inline"><button type="submit">Remove</button></form></td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% else %}
+<p class="muted">No alert destinations yet — add one below.</p>
+{% endif %}
+<h2>Add destination</h2>
+<form method="post" action="/projects/{{ project.id }}/alerts" class="inline">
+  <select name="channel_type" title="Channel type">
+    <option value="email">Email</option>
+    <option value="slack">Slack webhook</option>
+    <option value="webhook">Webhook</option>
+  </select>
+  <input name="target" placeholder="email address or https://… webhook URL" required style="flex:1; min-width:260px;" />
+  <button type="submit">Add</button>
+</form>
+{% endblock %}

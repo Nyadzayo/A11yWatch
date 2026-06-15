@@ -20,10 +20,11 @@ from a11ywatch.core.security import (
     verify_password,
 )
 from a11ywatch.jobs.dispatch import enqueue_scan
-from a11ywatch.models.tables import Branding, Project, Scan, User, Violation
+from a11ywatch.models.tables import AlertChannel, Branding, Project, Scan, User, Violation
 from a11ywatch.web.forms import (
     frequency_label,
     is_hex_color,
+    parse_alert_channel,
     parse_branding,
     parse_project_settings,
 )
@@ -519,7 +520,8 @@ async def project_report(
     scan = await session.scalar(
         select(Scan)
         .where(Scan.project_id == project.id, Scan.status == "succeeded")
-        .order_by(Scan.created_at.desc())
+        # Most recently finished scan (deterministic tiebreakers), as elsewhere.
+        .order_by(Scan.finished_at.desc(), Scan.created_at.desc(), Scan.id.desc())
         .limit(1)
     )
     impact_counts: dict = {}
@@ -557,3 +559,95 @@ async def project_report(
             "generated_at": datetime.now(UTC),
         },
     )
+
+
+# --- regression alert channels --------------------------------------------- #
+@router.get("/projects/{project_id}/alerts", response_class=HTMLResponse)
+async def alerts_form(
+    project_id: uuid.UUID, request: Request, session: SessionDep, user: DashboardUser
+):
+    if user is None:
+        return RedirectResponse("/login", status_code=303)
+    project = await session.get(Project, project_id)
+    if project is None or project.user_id != user.id:
+        return RedirectResponse("/", status_code=303)
+    channels = (
+        await session.scalars(
+            select(AlertChannel)
+            .where(AlertChannel.project_id == project.id)
+            .order_by(AlertChannel.created_at.asc())
+        )
+    ).all()
+    return templates.TemplateResponse(
+        request,
+        "alerts.html",
+        {
+            "user": user,
+            "project": project,
+            "channels": channels,
+            "saved": request.query_params.get("saved"),
+            "error": None,
+        },
+    )
+
+
+@router.post("/projects/{project_id}/alerts", dependencies=[Depends(verify_origin)])
+async def alerts_add(
+    project_id: uuid.UUID,
+    request: Request,
+    session: SessionDep,
+    user: DashboardUser,
+    channel_type: Annotated[str, Form()],
+    target: Annotated[str, Form()],
+):
+    if user is None:
+        return RedirectResponse("/login", status_code=303)
+    project = await session.get(Project, project_id)
+    if project is None or project.user_id != user.id:
+        return RedirectResponse("/", status_code=303)
+    try:
+        values = parse_alert_channel(channel_type=channel_type, target=target)
+    except ValueError as exc:
+        channels = (
+            await session.scalars(
+                select(AlertChannel)
+                .where(AlertChannel.project_id == project.id)
+                .order_by(AlertChannel.created_at.asc())
+            )
+        ).all()
+        return templates.TemplateResponse(
+            request,
+            "alerts.html",
+            {
+                "user": user,
+                "project": project,
+                "channels": channels,
+                "saved": None,
+                "error": str(exc),
+            },
+            status_code=400,
+        )
+    session.add(AlertChannel(project_id=project.id, **values))
+    await session.commit()
+    return RedirectResponse(f"/projects/{project.id}/alerts?saved=1", status_code=303)
+
+
+@router.post(
+    "/projects/{project_id}/alerts/{channel_id}/delete", dependencies=[Depends(verify_origin)]
+)
+async def alerts_delete(
+    project_id: uuid.UUID,
+    channel_id: uuid.UUID,
+    session: SessionDep,
+    user: DashboardUser,
+):
+    if user is None:
+        return RedirectResponse("/login", status_code=303)
+    project = await session.get(Project, project_id)
+    if project is None or project.user_id != user.id:
+        return RedirectResponse("/", status_code=303)
+    channel = await session.get(AlertChannel, channel_id)
+    if channel is not None and channel.project_id == project.id:
+        await session.delete(channel)
+        await session.commit()
+    return RedirectResponse(f"/projects/{project.id}/alerts", status_code=303)

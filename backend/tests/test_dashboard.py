@@ -4,7 +4,7 @@ from datetime import UTC, datetime, timedelta
 from sqlalchemy import func, select
 
 from a11ywatch.core.security import hash_password
-from a11ywatch.models.tables import Branding, Project, Scan, User, Violation
+from a11ywatch.models.tables import AlertChannel, Branding, Project, Scan, User, Violation
 
 
 async def _register(client, email="dash@example.com", password="secret123"):
@@ -478,6 +478,47 @@ async def test_branding_save_and_report_render(client, db_session):
     assert "compliance" not in body.lower()
 
 
+async def test_report_uses_most_recently_finished_scan(client, db_session):
+    # The report's "latest scan" must be the most recently finished one, even if another
+    # scan was created later but finished earlier (out-of-order completion).
+    await _register(client)
+    await _login(client)
+    user = await db_session.scalar(select(User).where(User.email == "dash@example.com"))
+    project = Project(user_id=user.id, name="P", base_url="https://ex.com")
+    db_session.add(project)
+    await db_session.flush()
+    now = datetime.now(UTC)
+    db_session.add_all(
+        [
+            Scan(
+                project_id=project.id,
+                trigger="scheduled",
+                status="succeeded",
+                total_issues=99,
+                new_issues=99,
+                resolved_issues=0,
+                created_at=now,
+                finished_at=now - timedelta(hours=2),
+            ),
+            Scan(
+                project_id=project.id,
+                trigger="on_demand",
+                status="succeeded",
+                total_issues=2,
+                new_issues=3,
+                resolved_issues=5,
+                created_at=now - timedelta(hours=1),
+                finished_at=now - timedelta(minutes=1),
+            ),
+        ]
+    )
+    await db_session.commit()
+
+    body = (await client.get(f"/projects/{project.id}/report")).text
+    assert "3 new" in body  # most recently finished scan's diff
+    assert "99 new" not in body
+
+
 async def test_report_without_scan_shows_placeholder(client, db_session):
     await _register(client)
     await _login(client)
@@ -524,6 +565,91 @@ async def test_branding_and_report_reject_non_owner(client, db_session):
     assert r_save.headers["location"] == "/"
     count = await db_session.scalar(
         select(func.count()).select_from(Branding).where(Branding.project_id == project.id)
+    )
+    assert count == 0
+
+
+async def test_alerts_add_email_and_slack_then_delete(client, db_session):
+    await _register(client)
+    await _login(client)
+    user = await db_session.scalar(select(User).where(User.email == "dash@example.com"))
+    project = Project(user_id=user.id, name="P", base_url="https://ex.com")
+    db_session.add(project)
+    await db_session.commit()
+
+    r1 = await client.post(
+        f"/projects/{project.id}/alerts",
+        data={"channel_type": "email", "target": "alerts@acme.com"},
+    )
+    r2 = await client.post(
+        f"/projects/{project.id}/alerts",
+        data={"channel_type": "slack", "target": "https://hooks.slack.com/services/x"},
+    )
+    assert r1.status_code == 303
+    assert r2.status_code == 303
+    channels = (
+        await db_session.scalars(
+            select(AlertChannel).where(AlertChannel.project_id == project.id)
+        )
+    ).all()
+    assert {c.type for c in channels} == {"email", "slack"}
+    assert all(c.events == ["new_issues"] for c in channels)
+
+    body = (await client.get(f"/projects/{project.id}/alerts")).text
+    assert "alerts@acme.com" in body
+    assert "hooks.slack.com" in body
+
+    email_channel = next(c for c in channels if c.type == "email")
+    rd = await client.post(f"/projects/{project.id}/alerts/{email_channel.id}/delete")
+    assert rd.status_code == 303
+    remaining = (
+        await db_session.scalars(
+            select(AlertChannel).where(AlertChannel.project_id == project.id)
+        )
+    ).all()
+    assert {c.type for c in remaining} == {"slack"}
+
+
+async def test_alerts_add_rejects_bad_target(client, db_session):
+    await _register(client)
+    await _login(client)
+    user = await db_session.scalar(select(User).where(User.email == "dash@example.com"))
+    project = Project(user_id=user.id, name="P", base_url="https://ex.com")
+    db_session.add(project)
+    await db_session.commit()
+
+    r = await client.post(
+        f"/projects/{project.id}/alerts",
+        data={"channel_type": "email", "target": "not-an-email"},
+    )
+    assert r.status_code == 400
+    count = await db_session.scalar(
+        select(func.count()).select_from(AlertChannel).where(AlertChannel.project_id == project.id)
+    )
+    assert count == 0
+
+
+async def test_alerts_reject_non_owner(client, db_session):
+    await _register(client)
+    await _login(client)
+    other = User(email="other@example.com", password_hash=hash_password("secret123"))
+    db_session.add(other)
+    await db_session.flush()
+    project = Project(user_id=other.id, name="Theirs", base_url="https://theirs.example.com")
+    db_session.add(project)
+    await db_session.commit()
+
+    r_list = await client.get(f"/projects/{project.id}/alerts")
+    assert r_list.status_code == 303
+    assert r_list.headers["location"] == "/"
+    r_add = await client.post(
+        f"/projects/{project.id}/alerts",
+        data={"channel_type": "email", "target": "hijack@evil.com"},
+    )
+    assert r_add.status_code == 303
+    assert r_add.headers["location"] == "/"
+    count = await db_session.scalar(
+        select(func.count()).select_from(AlertChannel).where(AlertChannel.project_id == project.id)
     )
     assert count == 0
 
