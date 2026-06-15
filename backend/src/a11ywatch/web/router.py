@@ -20,6 +20,7 @@ from a11ywatch.core.security import (
 )
 from a11ywatch.jobs.dispatch import enqueue_scan
 from a11ywatch.models.tables import Project, Scan, User, Violation
+from a11ywatch.web.forms import frequency_label, parse_project_settings
 from a11ywatch.web.trends import NO_BASELINE, scan_trend
 
 router = APIRouter(tags=["dashboard"], include_in_schema=False)
@@ -243,11 +244,29 @@ async def create_project_web(
     user: DashboardUser,
     name: Annotated[str, Form()],
     base_url: Annotated[str, Form()],
+    frequency: Annotated[str, Form()] = "daily",
+    sitemap_url: Annotated[str | None, Form()] = None,
+    url_list: Annotated[str | None, Form()] = None,
+    max_pages: Annotated[str | None, Form()] = None,
 ):
     if user is None:
         return RedirectResponse("/login", status_code=303)
     base_url = base_url.strip()
+    error: str | None = None
+    extra: dict = {}
     if not (base_url.startswith("http://") or base_url.startswith("https://")):
+        error = "URL must start with http:// or https://"
+    else:
+        try:
+            extra = parse_project_settings(
+                frequency=frequency,
+                sitemap_url=sitemap_url,
+                url_list_raw=url_list,
+                max_pages_raw=max_pages,
+            )
+        except ValueError as exc:
+            error = str(exc)
+    if error is not None:
         return templates.TemplateResponse(
             request,
             "dashboard.html",
@@ -255,11 +274,11 @@ async def create_project_web(
                 "user": user,
                 "rows": await _overview_rows(session, user),
                 "impact_order": _IMPACT_ORDER,
-                "error": "URL must start with http:// or https://",
+                "error": error,
             },
             status_code=400,
         )
-    project = Project(user_id=user.id, name=name.strip(), base_url=base_url)
+    project = Project(user_id=user.id, name=name.strip(), base_url=base_url, **extra)
     session.add(project)
     await session.commit()
     return RedirectResponse(f"/projects/{project.id}", status_code=303)
@@ -292,6 +311,14 @@ async def project_detail(
         trend = scan_trend(succeeded[0].total_issues, succeeded[1].total_issues)
         if trend.direction == NO_BASELINE:
             trend = None
+    if project.url_list:
+        pageset = f"{len(project.url_list)} specific pages"
+    elif project.sitemap_url:
+        pageset = "pages from sitemap"
+    elif project.max_pages:
+        pageset = f"crawl up to {project.max_pages} pages"
+    else:
+        pageset = "full-site crawl"
     return templates.TemplateResponse(
         request,
         "project.html",
@@ -302,6 +329,8 @@ async def project_detail(
             "history": history,
             "max_issues": max_issues,
             "trend": trend,
+            "frequency_label": frequency_label(project.scan_frequency_minutes),
+            "pageset": pageset,
         },
     )
 

@@ -5,6 +5,14 @@
 <form method="post" action="/projects" class="inline">
   <input name="name" placeholder="Project name" required />
   <input name="base_url" type="url" placeholder="https://example.com" required style="flex:1; min-width:220px;" />
+  <select name="frequency" title="Scan frequency">
+    <option value="hourly">Hourly</option>
+    <option value="daily" selected>Daily</option>
+    <option value="weekly">Weekly</option>
+  </select>
+  <input name="sitemap_url" type="url" placeholder="Sitemap URL (optional)" style="flex:1; min-width:200px;" />
+  <input name="max_pages" type="number" min="1" placeholder="Max pages" style="width:120px;" />
+  <textarea name="url_list" rows="2" placeholder="Specific page URLs (optional, one per line)" style="flex:1; min-width:220px;"></textarea>
   <button type="submit">Add project</button>
 </form>
 {% if rows %}

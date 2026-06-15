@@ -3,6 +3,7 @@
 <p><a href="/">← Projects</a></p>
 <h1>{{ project.name }}</h1>
 <p class="muted">{{ project.base_url }} · status: {{ project.status }}</p>
+<p class="muted">Scans {{ frequency_label }} · {{ pageset }}</p>
 {% if trend %}
 <p>
   <span class="trend {{ trend.direction }}">

@@ -170,6 +170,82 @@ async def test_overview_uses_latest_succeeded_scan_not_failed(client, db_session
     assert 'class="issue-count">7<' in body  # last good scan, not the 0 from the failure
 
 
+async def test_create_project_persists_scan_settings(client, db_session):
+    await _register(client)
+    await _login(client)
+    r = await client.post(
+        "/projects",
+        data={
+            "name": "Acme",
+            "base_url": "https://acme.example.com",
+            "frequency": "weekly",
+            "sitemap_url": "https://acme.example.com/sitemap.xml",
+            "max_pages": "12",
+            "url_list": "https://acme.example.com/a\nhttps://acme.example.com/b",
+        },
+    )
+    assert r.status_code == 303
+    project = await db_session.scalar(select(Project).where(Project.name == "Acme"))
+    assert project.scan_frequency_minutes == 10080
+    assert project.sitemap_url == "https://acme.example.com/sitemap.xml"
+    assert project.max_pages == 12
+    assert project.url_list == ["https://acme.example.com/a", "https://acme.example.com/b"]
+
+
+async def test_create_project_defaults_to_daily(client, db_session):
+    await _register(client)
+    await _login(client)
+    await client.post("/projects", data={"name": "D", "base_url": "https://d.example.com"})
+    project = await db_session.scalar(select(Project).where(Project.name == "D"))
+    assert project.scan_frequency_minutes == 1440
+
+
+async def test_create_project_rejects_invalid_frequency(client, db_session):
+    await _register(client)
+    await _login(client)
+    r = await client.post(
+        "/projects",
+        data={"name": "Bad", "base_url": "https://bad.example.com", "frequency": "yearly"},
+    )
+    assert r.status_code == 400
+    count = await db_session.scalar(
+        select(func.count()).select_from(Project).where(Project.name == "Bad")
+    )
+    assert count == 0
+
+
+async def test_create_project_rejects_invalid_max_pages(client, db_session):
+    await _register(client)
+    await _login(client)
+    r = await client.post(
+        "/projects",
+        data={"name": "Bad2", "base_url": "https://bad2.example.com", "max_pages": "-5"},
+    )
+    assert r.status_code == 400
+    count = await db_session.scalar(
+        select(func.count()).select_from(Project).where(Project.name == "Bad2")
+    )
+    assert count == 0
+
+
+async def test_project_page_shows_scan_settings(client, db_session):
+    await _register(client)
+    await _login(client)
+    await client.post(
+        "/projects",
+        data={
+            "name": "Shown",
+            "base_url": "https://shown.example.com",
+            "frequency": "weekly",
+            "url_list": "https://shown.example.com/a\nhttps://shown.example.com/b",
+        },
+    )
+    project = await db_session.scalar(select(Project).where(Project.name == "Shown"))
+    body = (await client.get(f"/projects/{project.id}")).text
+    assert "weekly" in body.lower()
+    assert "specific pages" in body.lower()
+
+
 async def test_scan_now_enqueues_and_redirects(client, db_session):
     await _register(client)
     await _login(client)
