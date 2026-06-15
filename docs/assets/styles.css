@@ -48,7 +48,7 @@
   /* Type families */
   --font-display: "Fraunces", Georgia, "Times New Roman", serif;
   --font-body:    "Hanken Grotesk", "Segoe UI", Helvetica, sans-serif;
-  --font-mono:    "IBM Plex Mono", "SFMono-Regular", Menlo, monospace;
+  --font-mono:    var(--font-body);  /* labels use the normal body font, not a monospace */
 
   /* Type scale — fluid, clamps 320px -> wide */
   --fs-eyebrow:   0.78rem;
@@ -164,15 +164,6 @@ hr { border: 0; height: 1px; background: var(--rule); margin: var(--sp-7) 0; }
   max-width: 22ch;
   margin-bottom: var(--sp-6);
 }
-/* baseline scanline under section titles — the monitoring signature */
-.section-title::after {
-  content: "";
-  display: block;
-  width: 4.5rem;
-  height: 7px;
-  margin-top: var(--sp-4);
-  background-image: var(--signal-rule);
-}
 
 .visually-hidden,
 .skip-link:not(:focus):not(:focus-within) {
@@ -211,13 +202,6 @@ hr { border: 0; height: 1px; background: var(--rule); margin: var(--sp-7) 0; }
   text-transform: uppercase;
   color: var(--accent-ink);
   margin: 0 0 var(--sp-4);
-}
-.eyebrow::before {
-  content: "";
-  width: 1.6rem;
-  height: 6px;
-  background-image: var(--signal-rule);
-  flex: none;
 }
 
 /* ---------- 6. BUTTONS ---------- */
@@ -347,14 +331,6 @@ hr { border: 0; height: 1px; background: var(--rule); margin: var(--sp-7) 0; }
   position: relative;
   padding-block: clamp(3rem, 2rem + 6vw, 7rem) clamp(3rem, 2rem + 5vw, 5.5rem);
   overflow: hidden;
-}
-.hero::after {  /* the standing-watch baseline scanline across the foot of the hero */
-  content: "";
-  position: absolute;
-  left: 0; right: 0; bottom: 0;
-  height: 9px;
-  background-image: var(--signal-rule);
-  opacity: 0.85;
 }
 .hero .container {
   display: grid;
@@ -536,9 +512,9 @@ hr { border: 0; height: 1px; background: var(--rule); margin: var(--sp-7) 0; }
   min-height: 2.5em;
 }
 .plan-card__rule {
-  height: 6px;
+  height: 1px;
   margin: var(--sp-5) 0;
-  background-image: var(--signal-rule);
+  background: var(--rule);
 }
 .plan-card .btn { margin-top: auto; width: 100%; }
 
@@ -591,7 +567,6 @@ hr { border: 0; height: 1px; background: var(--rule); margin: var(--sp-7) 0; }
 .banner {
   background: var(--paper-sunk);
   border: 1px solid var(--rule-strong);
-  border-left: 5px solid var(--accent);
   border-radius: var(--radius-lg);
   padding: var(--sp-6) clamp(1.5rem, 1rem + 2vw, 2.5rem);
   display: flex;
@@ -692,8 +667,6 @@ hr { border: 0; height: 1px; background: var(--rule); margin: var(--sp-7) 0; }
   background: var(--ink);
   color: var(--on-ink-soft);
   margin-top: var(--sp-8);
-  border-top: 9px solid transparent;
-  border-image: var(--signal-rule) 9;
 }
 .site-footer__inner {
   display: grid;
