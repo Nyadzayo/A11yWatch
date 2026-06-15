@@ -153,3 +153,41 @@ Adversarial review (injection / authz / correctness) → 3 confirmed fixes: late
 - **No silent scope cuts:** if a phase drops a requirement, note it here.
 - **Copy guard:** a pre-commit/CI step greps source + copy for "compliance" (case-insensitive) and fails on any match — turning the no-"compliance" rule into a guarantee, not a convention.
 - **Traceability:** R1 P1/P3 · R2 P3 · R3 P3/P4 · R4 P4 · R5 P4 · R6 P3 · R7 P2 · R8 P3 · R9 P6. On-demand==scheduled (§4) verified P3. No "compliance" copy: enforced repo-wide.
+
+## Production MVP v2 — stages (SPEC §15) · TDD-first · PAUSE at each gate
+
+**Audit (2026-06-15) vs SPEC §15.** Done ✅: F2 pipeline (scheduler→queue→worker), idempotency/lock, timeouts, retries+backoff, operator-vs-customer alerts, Chromium lifecycle, /api/v1, pydantic v2, error envelopes, pagination, structured logs, scan metrics, free axe help passthrough, multi-site dashboard UI, fingerprint rule_id. Gaps ❌/⚠️: axe `incomplete`/`passes`/`inapplicable` not captured (only `violations`); fingerprint uses raw axe `target` selector and **bakes page_url in** (no stable signature, no configurable dynamic-class filter, no DOM-mutation tests); no Issue/Occurrence dedup (per-scan `violations` only); no triage/status/suppression/status-log; diff is occurrence-level vs last scan & dismissal-blind; no default filtering; no accounts/plan/entitlement/usage/Stripe gating (auth+ownership only); white-label report is browser-print HTML over raw per-scan violations; no AI explanations; no statement generator; queue-depth observability missing.
+
+### Stage S1 — Issue model + fingerprint v2 + dedup + `incomplete` classification · **TDD-first**
+Write-first: fingerprint stable under DOM mutations (reordered siblings, inserted wrapper, changed dynamic/hashed class) → SAME fp; distinct issues → DIFFERENT fp. Dedup: one component on N pages → 1 Issue + N occurrences. `incomplete`: needs-review never in headline/alerts.
+Build: scanner captures all four axe buckets; page-independent fingerprint v2 (stable element signature + configurable dynamic class/id regex filter in settings); `issues` + `occurrences` + `needs_review` tables; persist → upsert Issues + append Occurrences (first/last seen) + store needs_review + passes/inapplicable counts; headline = distinct Issues + pages_affected. **Decision:** repurpose `violations`→`occurrences` vs add new (greenfield migration — dev data only).
+Gate: write-first tests green; engine emits deduped Issues. **Nothing else is correct without this.**
+
+### Stage S2 — Triage + dismissal + status log
+Build: `Issue.status` enum; `suppressions` (scope occurrence|issue|rule, fingerprint-keyed, actor+ts+required reason); immutable `issue_status_log`; API + dashboard one-click status/dismiss-with-reason + bulk; needs-review opt-in tab; default view filters to open/in_progress.
+Write-first: a dismissed fingerprint stays suppressed across subsequent scans (keyed by fingerprint+scope).
+Gate: status/dismissal persist; log immutable.
+
+### Stage S3 — Dismissal-aware regression diff + alerts
+Build: issue-level diff; suppressed reappearance → no alert; fixed→reappear → regression (alert + flip to open + log); wire new/regressed only to the existing alert queue. (+ queue-depth observability.)
+Write-first: new issue alerts; dismissed reappearance does NOT alert; fixed→reappear flips & alerts.
+Gate: regression tests green; alerts respect dismissals.
+
+### Stage S4 — Entitlements + usage metering + server-side gating
+Build: `accounts` (1 user→1 account MVP) + plan/status; entitlement dependency on paid endpoints (402/403); `usage_meters` + per-tier caps (clear limit/upgrade responses); Stripe checkout link + webhook (**new dep — confirm**). Migrate projects → `account_id`.
+Write-first: paid endpoint rejects free/over-cap **server-side**.
+Gate: entitlement enforced; caps work.
+
+### Stage S5 — White-label PDF report
+Build: server-side PDF via Playwright `page.pdf()` from deduped Issues; exclude dismissed (+ optional reviewed count); needs-review separate; branded + timestamped; entitlement-gated.
+Write-first: report reflects deduped issues + dismissals + branding; gated for free.
+Gate: PDF artifact correct.
+
+### Stage S6 — Multi-site dashboard hero + documentation export
+Build: overview reads deduped open-Issue counts (account-level roll-up); exportable documentation/remediation history from `issue_status_log` (status timeline + attribution).
+Gate: dashboard reads Issues; history export works.
+
+### Stage S7 — AI explanations + statement generator
+Build: AI explanation (LLM — **provider/dep confirm**), metered + capped, cached by `(rule_id, fingerprint)`, gated; accessibility statement generator (no compliance copy), gated.
+Write-first: explanation metered + cached; over-cap rejected.
+Gate: AI metered/cached; statement generates.
