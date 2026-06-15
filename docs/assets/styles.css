@@ -1,5 +1,5 @@
 /* ============================================================
-   A11yWatch — assets/styles.css
+   A11yTrail — assets/styles.css
    "Editorial monitoring instrument"
    Warm paper - near-black ink - one rust accent
    Fraunces (display) / Hanken Grotesk (body) / IBM Plex Mono (signal)
@@ -652,14 +652,7 @@ hr { border: 0; height: 1px; background: var(--rule); margin: var(--sp-7) 0; }
 
 /* ---------- 18. PLACEHOLDER (spot bracketed [COPY] to replace) ---------- */
 .placeholder {
-  background: var(--ph-bg);
-  color: var(--ph-ink);
-  font-weight: 600;
-  padding: 0.05em 0.35em;
-  border-radius: 3px;
-  border-bottom: 2px dotted var(--ph-line);
-  box-decoration-break: clone;
-  -webkit-box-decoration-break: clone;
+  /* placeholders filled with real values — render as normal text */
 }
 
 /* ---------- 19. SITE FOOTER ---------- */
