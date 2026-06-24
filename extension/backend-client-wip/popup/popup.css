@@ -1,0 +1,164 @@
+:root {
+  --fg: #1a1a1a;
+  --muted: #666;
+  --accent: #1a56db;
+  --critical: #b91c1c;
+  --serious: #c2410c;
+  --moderate: #a16207;
+  --minor: #4b5563;
+  --border: #e5e7eb;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  width: 360px;
+  margin: 0;
+  padding: 12px;
+  font: 13px/1.4 system-ui, sans-serif;
+  color: var(--fg);
+}
+
+.bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+
+h2 {
+  margin: 4px 0 10px;
+  font-size: 15px;
+}
+
+input[type='email'],
+input[type='password'],
+input[type='url'] {
+  width: 100%;
+  padding: 8px;
+  margin-bottom: 8px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font: inherit;
+}
+
+.check {
+  display: block;
+  margin: 4px 0 8px;
+  color: var(--muted);
+}
+
+details {
+  margin-bottom: 8px;
+  color: var(--muted);
+}
+
+button.primary {
+  width: 100%;
+  padding: 9px;
+  border: 0;
+  border-radius: 6px;
+  background: var(--accent);
+  color: #fff;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+button.primary:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+button.link {
+  border: 0;
+  background: none;
+  color: var(--accent);
+  cursor: pointer;
+  font: inherit;
+}
+
+.who {
+  color: var(--muted);
+  margin: 0 0 10px;
+}
+
+.status {
+  color: var(--muted);
+}
+
+.summary {
+  font-weight: 600;
+  margin: 10px 0 6px;
+}
+
+.error {
+  color: var(--critical);
+  min-height: 1em;
+}
+
+.empty {
+  color: var(--muted);
+}
+
+.group {
+  margin: 8px 0;
+}
+
+.group h3 {
+  margin: 8px 0 4px;
+  font-size: 12px;
+  text-transform: capitalize;
+}
+
+.group ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.issue {
+  border-left: 3px solid var(--border);
+  padding: 6px 8px;
+  margin-bottom: 6px;
+  background: #fafafa;
+  border-radius: 0 4px 4px 0;
+}
+
+.issue.impact-critical {
+  border-color: var(--critical);
+}
+.issue.impact-serious {
+  border-color: var(--serious);
+}
+.issue.impact-moderate {
+  border-color: var(--moderate);
+}
+.issue.impact-minor {
+  border-color: var(--minor);
+}
+
+.issue .rule {
+  font-weight: 600;
+  display: block;
+}
+
+.issue .help {
+  display: block;
+  color: var(--muted);
+  margin: 2px 0;
+}
+
+.issue .target {
+  display: block;
+  font-size: 11px;
+  color: var(--muted);
+  word-break: break-all;
+}
+
+.issue .learn {
+  color: var(--accent);
+  font-size: 12px;
+}

@@ -3,43 +3,122 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>A11yWatch</title>
+    <title>A11yTrail — Accessibility Checker (WCAG & ADA)</title>
     <link rel="stylesheet" href="./popup.css" />
   </head>
   <body>
-    <header class="bar">
-      <strong>A11yWatch</strong>
-      <button id="logout" class="link" hidden>Log out</button>
+    <header class="app-header">
+      <span class="brand">
+        <svg class="brand-icon" width="20" height="20" viewBox="0 0 24 24" fill="none"
+          stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+          aria-hidden="true">
+          <path d="M10 12a2 2 0 1 0 4 0 2 2 0 0 0-4 0" />
+          <path d="M21 12c-2.4 4-5.4 6-9 6-1 0-2-.16-3-.48" />
+          <path d="M3.6 15A9.6 9.6 0 0 1 3 12c2.4-4 5.4-6 9-6 2 0 3.8.62 5.4 1.7" />
+          <path d="M15 19l2 2 4-4" />
+        </svg>
+        <span class="brand-name">A11y<span class="brand-mark">Trail</span></span>
+      </span>
     </header>
 
-    <section id="login-view" hidden>
-      <h2>Sign in</h2>
-      <form id="login-form">
-        <input id="email" type="email" placeholder="Email" autocomplete="username" required />
-        <input
-          id="password"
-          type="password"
-          placeholder="Password"
-          autocomplete="current-password"
-          required
-        />
-        <label class="check"><input id="register" type="checkbox" /> Create a new account</label>
-        <details>
-          <summary>Advanced</summary>
-          <input id="baseUrl" type="url" placeholder="API URL" />
-        </details>
-        <button type="submit" class="primary">Continue</button>
-      </form>
-      <p id="login-error" class="error" role="alert"></p>
-    </section>
+    <main class="app-main">
+      <!-- Scanning -->
+      <section id="state-scanning" class="state" hidden>
+        <span class="spinner" aria-hidden="true"></span>
+        <p class="state-text" role="status">Scanning this page…</p>
+      </section>
 
-    <section id="audit-view" hidden>
-      <p class="who">Signed in as <span id="who"></span></p>
-      <button id="audit" class="primary">Audit this page</button>
-      <p id="status" class="status" role="status"></p>
-      <p id="summary" class="summary"></p>
-      <div id="results"></div>
-    </section>
+      <!-- Unsupported page -->
+      <section id="state-unsupported" class="state" hidden>
+        <p class="state-title">This page can’t be scanned</p>
+        <p class="state-text" id="unsupported-reason">
+          A11yTrail can only scan regular web pages. Open a normal http(s) page and try again.
+        </p>
+      </section>
+
+      <!-- Error -->
+      <section id="state-error" class="state" hidden>
+        <p class="state-title">Scan didn’t finish</p>
+        <p class="state-text" id="error-message"></p>
+        <button id="retry" type="button" class="btn">Try again</button>
+      </section>
+
+      <!-- Results -->
+      <section id="state-results" hidden>
+        <div class="score-row">
+          <div id="score-ring" class="score-ring" role="img" aria-label="">
+            <span id="score-grade" class="score-grade"></span>
+          </div>
+          <div class="score-meta">
+            <div class="score-label">Accessibility score</div>
+            <div class="score-line">
+              <span id="score-value" class="score-value"></span>
+              <span id="issue-count" class="muted"></span>
+            </div>
+            <div class="score-host">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                stroke-width="2" aria-hidden="true">
+                <circle cx="12" cy="12" r="9" />
+                <path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18" />
+              </svg>
+              <span id="host" class="host"></span>
+            </div>
+          </div>
+          <button id="rescan" type="button" class="btn btn-ghost btn-rescan">Re-scan</button>
+        </div>
+
+        <div id="breakdown" class="breakdown" role="group" aria-label="Filter by severity"></div>
+
+        <div class="tabs">
+          <div class="tablist" role="tablist" aria-label="Results">
+            <button id="tab-issues" class="tab" role="tab" aria-selected="true"
+              aria-controls="panel-issues">
+              Issues <span id="issues-tab-count" class="tab-count"></span>
+            </button>
+            <button id="tab-review" class="tab" role="tab" aria-selected="false" tabindex="-1"
+              aria-controls="panel-review">
+              Needs review <span id="review-tab-count" class="tab-count"></span>
+            </button>
+          </div>
+          <div class="standard-wrap">
+            <span id="active-standard" class="active-standard" aria-live="polite"></span>
+            <label class="level-filter">
+              <span class="sr-only">WCAG conformance level filter</span>
+              <select id="level-select" class="level-select">
+                <option value="A">A</option>
+                <option value="AA" selected>AA</option>
+              </select>
+            </label>
+          </div>
+        </div>
+
+        <div id="panel-issues" class="panel" role="tabpanel" aria-labelledby="tab-issues"
+          tabindex="0"></div>
+        <div id="panel-review" class="panel" role="tabpanel" aria-labelledby="tab-review"
+          tabindex="0" hidden></div>
+      </section>
+    </main>
+
+    <footer class="app-footer" id="footer" hidden>
+      <div class="export-wrap">
+        <button id="export-btn" type="button" class="btn btn-ghost" aria-haspopup="menu"
+          aria-expanded="false" aria-controls="export-menu">Export</button>
+        <div id="export-menu" class="export-menu" role="menu" hidden>
+          <button class="export-item" type="button" role="menuitem" data-export="html">
+            Download HTML report
+          </button>
+          <button class="export-item" type="button" role="menuitem" data-export="json">
+            Download JSON
+          </button>
+          <button class="export-item" type="button" role="menuitem" data-export="copy">
+            Copy summary
+          </button>
+        </div>
+      </div>
+      <a class="upsell" href="https://nyadzayo.github.io/A11yTrail/" target="_blank" rel="noopener noreferrer">
+        Monitor continuously →
+      </a>
+    </footer>
 
     <script type="module" src="./popup.ts"></script>
   </body>

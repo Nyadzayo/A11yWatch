@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>A11yWatch</title>
+    <link rel="stylesheet" href="./popup.css" />
+  </head>
+  <body>
+    <header class="bar">
+      <strong>A11yWatch</strong>
+      <button id="logout" class="link" hidden>Log out</button>
+    </header>
+
+    <section id="login-view" hidden>
+      <h2>Sign in</h2>
+      <form id="login-form">
+        <input id="email" type="email" placeholder="Email" autocomplete="username" required />
+        <input
+          id="password"
+          type="password"
+          placeholder="Password"
+          autocomplete="current-password"
+          required
+        />
+        <label class="check"><input id="register" type="checkbox" /> Create a new account</label>
+        <details>
+          <summary>Advanced</summary>
+          <input id="baseUrl" type="url" placeholder="API URL" />
+        </details>
+        <button type="submit" class="primary">Continue</button>
+      </form>
+      <p id="login-error" class="error" role="alert"></p>
+    </section>
+
+    <section id="audit-view" hidden>
+      <p class="who">Signed in as <span id="who"></span></p>
+      <button id="audit" class="primary">Audit this page</button>
+      <p id="status" class="status" role="status"></p>
+      <p id="summary" class="summary"></p>
+      <div id="results"></div>
+    </section>
+
+    <script type="module" src="./popup.ts"></script>
+  </body>
+</html>

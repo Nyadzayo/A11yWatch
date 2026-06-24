@@ -1,53 +1,59 @@
-export interface Session {
-  baseUrl: string
-  token: string
-  email: string
+// Shared types for the standalone client-side scanner.
+// `Axe*` mirror the subset of axe-core's result shape we consume; `Issue`/`ScanData`
+// are our normalized model used throughout the popup UI.
+
+export type Impact = 'critical' | 'serious' | 'moderate' | 'minor'
+
+/** A single failing element, as axe reports it. `target` is a CSS selector path. */
+export interface AxeNode {
+  target: Array<string | string[]>
+  html: string
+  failureSummary?: string
 }
 
-export interface Page<T> {
-  items: T[]
-  total: number
-  limit: number
-  offset: number
-}
-
-export interface Project {
+/** One axe rule result (a "rule" = one issue card in the UI). */
+export interface AxeResultItem {
   id: string
-  name: string
-  base_url: string
-  status: string
+  impact: Impact | null
+  tags: string[]
+  description: string
+  help: string
+  helpUrl: string
+  nodes: AxeNode[]
 }
 
-export interface ProjectCreate {
-  name: string
-  base_url: string
-  url_list?: string[]
-  max_pages?: number
-  scan_frequency_minutes?: number
+/** The relevant slice of the object returned by `axe.run()`. */
+export interface AxeResults {
+  violations: AxeResultItem[]
+  incomplete: AxeResultItem[]
+  passes: AxeResultItem[]
+  inapplicable: AxeResultItem[]
 }
 
-export type ScanStatus = 'queued' | 'running' | 'succeeded' | 'failed'
-
-export interface Scan {
-  id: string
-  project_id: string
-  status: ScanStatus
-  trigger: string
-  pages_scanned: number
-  total_issues: number
-  new_issues: number
-  resolved_issues: number
+/** A normalized failing element. */
+export interface IssueNode {
+  target: string
+  html: string
+  failureSummary: string | null
 }
 
-export interface Violation {
-  id: string
-  scan_id: string
-  page_url: string
-  rule_id: string
-  impact: string | null
-  help: string | null
-  help_url: string | null
-  target: string | null
-  html_snippet: string | null
-  fingerprint: string
+/** A normalized issue — one per axe rule. */
+export interface Issue {
+  ruleId: string
+  impact: Impact | null
+  help: string
+  description: string
+  helpUrl: string
+  tags: string[]
+  nodes: IssueNode[]
+}
+
+/** The full result of one client-side scan. `needsReview` is axe `incomplete` and is
+ *  deliberately kept out of `issues` so it never inflates the headline count. */
+export interface ScanData {
+  url: string
+  issues: Issue[]
+  needsReview: Issue[]
+  passCount: number
+  inapplicableCount: number
 }
